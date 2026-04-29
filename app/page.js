@@ -1,9 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 
-// ━━━ ヘルスデータ（Phase 2で本物に差し替え）━━━━━━━
-const DUMMY = { steps: 6800, sleep: 6.2, heartRate: 72 };
-
+// ━━━ HP計算 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function calcHP({ steps, sleep, heartRate }) {
   return Math.round(
     Math.min(steps / 8000, 1) * 40 +
@@ -109,7 +107,6 @@ function MindTab() {
   const phaseRef  = useRef('idle');
   const roundsRef = useRef(0);
 
-  // localStorage ロード＆アンマウント時クリーンアップ
   useEffect(() => {
     try {
       const raw = localStorage.getItem('mp_mind_v1');
@@ -117,7 +114,6 @@ function MindTab() {
     } catch {}
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      // アンマウント時に完了済みラウンドを保存
       if (roundsRef.current > 0) {
         try {
           const raw = localStorage.getItem('mp_mind_v1');
@@ -146,7 +142,6 @@ function MindTab() {
     });
   }
 
-  // rAF ループ（滑らかなアニメーション）
   function runLoop() {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     startRef.current = performance.now();
@@ -196,7 +191,6 @@ function MindTab() {
 
   return (
     <div style={{ flex:1, minHeight:0, display:'flex', flexDirection:'column', gap:'10px', overflowY:'auto' }}>
-      {/* ランキング */}
       {top3.length > 0 && (
         <div style={{ background:'#f8fafc', borderRadius:'14px', padding:'10px 12px', border:'1px solid #e2e8f0', flexShrink:0 }}>
           <div style={{ fontSize:'10px', color:'#a0aec0', letterSpacing:'1.5px', marginBottom:'6px' }}>🏆 BREATHING RECORD</div>
@@ -213,7 +207,6 @@ function MindTab() {
           </div>
         </div>
       )}
-      {/* 呼吸サークル */}
       <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'12px' }}>
         <div style={{ fontSize:'11px', color:'#a0aec0', letterSpacing:'1px' }}>
           4-4-6 呼吸法{rounds > 0 ? ` · ${rounds}回完了 🌿` : ''}
@@ -325,8 +318,8 @@ function RoutineTab() {
   );
 }
 
-// ━━━ ホーム画面（クロック＋エネルギー）━━━━━━━━━━━
-function HomeView({ hp, cond, hpColor, barrier, now }) {
+// ━━━ ホーム画面 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function HomeView({ hp, cond, hpColor, barrier, now, healthStats, isDemo, loading }) {
   const hh = String(now.getHours()).padStart(2,'0');
   const mm = String(now.getMinutes()).padStart(2,'0');
   const ss = String(now.getSeconds()).padStart(2,'0');
@@ -344,10 +337,9 @@ function HomeView({ hp, cond, hpColor, barrier, now }) {
   return (
     <div style={{ flex:1, minHeight:0, display:'flex', flexDirection:'column', position:'relative', overflow:'hidden' }}>
 
-      {/* ── 背景デコレーション ── */}
+      {/* 背景装飾 */}
       <div style={{ position:'absolute', inset:0, pointerEvents:'none', overflow:'hidden' }}>
         {!b ? (
-          // トゥモローランド装飾
           <>
             <div style={{ position:'absolute', inset:0, backgroundImage:'radial-gradient(circle, #c0caf522 1px, transparent 1px)', backgroundSize:'26px 26px' }} />
             <svg style={{ position:'absolute', top:'-8%', left:'50%', transform:'translateX(-50%)', width:'90vw', maxWidth:'420px', opacity:0.13 }} viewBox="0 0 400 400">
@@ -361,7 +353,6 @@ function HomeView({ hp, cond, hpColor, barrier, now }) {
             <div style={{ position:'absolute', bottom:'33%', left:'8%', right:'8%', height:'1px', background:'linear-gradient(90deg,transparent,#ecc94b66,transparent)' }}/>
           </>
         ) : (
-          // バリア装飾（星空＋シールドリング）
           <>
             <svg style={{ position:'absolute', top:'-5%', left:'50%', transform:'translateX(-50%)', width:'100vw', maxWidth:'480px', opacity:0.18 }} viewBox="0 0 400 400">
               <circle cx="200" cy="200" r="175" fill="none" stroke="#a78bfa" strokeWidth="1"/>
@@ -376,7 +367,7 @@ function HomeView({ hp, cond, hpColor, barrier, now }) {
         )}
       </div>
 
-      {/* ── クロック（上38%）── */}
+      {/* クロック（上38%） */}
       <div style={{ flex:'0 0 38%', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', position:'relative', zIndex:1 }}>
         <div style={{ fontSize:'10px', letterSpacing:'3px', color:sCol, marginBottom:'8px', fontWeight:'600' }}>
           {greeting}
@@ -392,7 +383,7 @@ function HomeView({ hp, cond, hpColor, barrier, now }) {
         </div>
       </div>
 
-      {/* ── エネルギーカード（下62%）── */}
+      {/* エネルギーカード（下62%） */}
       <div style={{ flex:1, padding:'0 14px 10px', display:'flex', flexDirection:'column', justifyContent:'center', position:'relative', zIndex:1 }}>
         <div style={{ background:cBg, borderRadius:'22px', padding:'14px 16px', boxShadow: b?'0 4px 28px rgba(124,58,237,0.25)':'0 4px 20px rgba(0,0,0,0.07)', border:`1px solid ${cBdr}`, backdropFilter: b?'blur(12px)':'none', WebkitBackdropFilter: b?'blur(12px)':'none', transition:'all 0.8s' }}>
           {/* HP行 */}
@@ -417,10 +408,7 @@ function HomeView({ hp, cond, hpColor, barrier, now }) {
           </div>
           {/* 3指標 */}
           <div style={{ display:'flex', gap:'6px' }}>
-            {[{ label:'歩数', value:DUMMY.steps.toLocaleString(), unit:'steps' },
-              { label:'睡眠', value:DUMMY.sleep,                  unit:'h'     },
-              { label:'心拍', value:DUMMY.heartRate,              unit:'bpm'   }
-            ].map(d => (
+            {healthStats.map(d => (
               <div key={d.label} style={{ flex:1, background: b?'rgba(255,255,255,0.06)':'#f8fafc', borderRadius:'9px', padding:'6px 4px', border:`1px solid ${subBdr}`, textAlign:'center', transition:'all 0.8s' }}>
                 <div style={{ fontSize:'9px', color:sCol, marginBottom:'1px' }}>{d.label}</div>
                 <div style={{ fontSize:'14px', fontWeight:'700', color: b?'#e9d8fd':'#2d3748', transition:'color 0.8s' }}>{d.value}</div>
@@ -428,6 +416,12 @@ function HomeView({ hp, cond, hpColor, barrier, now }) {
               </div>
             ))}
           </div>
+          {/* データソース表示 */}
+          {!loading && (
+            <div style={{ textAlign:'center', marginTop:'6px', fontSize:'10px', color: b?'rgba(167,139,250,0.5)':'#cbd5e0' }}>
+              {isDemo ? '⚠️ デモデータ表示中' : '✅ Apple ヘルスケアのデータ'}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -445,26 +439,52 @@ const TABS = [
 
 // ━━━ メイン ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 export default function Home() {
-  const [now, setNow]       = useState(new Date());
-  const [tab, setTab]       = useState('home');
+  const [now, setNow]         = useState(new Date());
+  const [tab, setTab]         = useState('home');
   const [barrier, setBarrier] = useState(false);
+  const [health, setHealth]   = useState({ steps: 0, sleep: 0, heartRate: 0, isDemo: true });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
 
-  const hp      = calcHP(DUMMY);
+  // ヘルスデータをAPIから取得（5分ごとに自動更新）
+  useEffect(() => {
+    async function fetchHealth() {
+      try {
+        const res  = await fetch('/api/health');
+        const data = await res.json();
+        if (!data.error) setHealth(data);
+      } catch (e) {
+        console.error('fetch error', e);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchHealth();
+    const iv = setInterval(fetchHealth, 5 * 60 * 1000);
+    return () => clearInterval(iv);
+  }, []);
+
+  const hp      = calcHP(health);
   const cond    = getCondition(hp);
   const hpColor = getHPColor(hp);
 
-  const appBg  = barrier
+  const appBg   = barrier
     ? 'linear-gradient(160deg,#140832 0%,#2d1b69 55%,#1a2c5c 100%)'
     : 'linear-gradient(160deg,#ffffff 0%,#f0f4ff 100%)';
   const tBarBg  = barrier ? 'rgba(16,6,44,0.96)' : 'white';
   const tBarBdr = barrier ? 'rgba(167,139,250,0.2)' : '#e8edf5';
 
   const TABBAR_HEIGHT = 64;
+
+  const healthStats = [
+    { label:'歩数', value: loading ? '...' : health.steps.toLocaleString(), unit:'steps' },
+    { label:'睡眠', value: loading ? '...' : health.sleep,                  unit:'h'     },
+    { label:'心拍', value: loading ? '...' : health.heartRate,              unit:'bpm'   },
+  ];
 
   const cardStyle = {
     background:'white', borderRadius:'22px', padding:'14px',
@@ -474,7 +494,13 @@ export default function Home() {
 
   function renderContent() {
     if (tab === 'home') return (
-      <HomeView hp={hp} cond={cond} hpColor={hpColor} barrier={barrier} now={now} />
+      <HomeView
+        hp={hp} cond={cond} hpColor={hpColor}
+        barrier={barrier} now={now}
+        healthStats={healthStats}
+        isDemo={health.isDemo}
+        loading={loading}
+      />
     );
     const titles = { task:'TASK MATRIX', mind:'MINDFULNESS', safe:'HSP SAFE ZONE', routine:'DAILY ROUTINE' };
     return (
@@ -494,8 +520,7 @@ export default function Home() {
 
   return (
     <main style={{
-      position:'fixed',
-      top:0, left:0, right:0, bottom:0,
+      position:'fixed', top:0, left:0, right:0, bottom:0,
       background:appBg,
       fontFamily:'-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
       overflow:'hidden',
@@ -503,28 +528,19 @@ export default function Home() {
       touchAction:'manipulation',
       transition:'background 0.8s ease',
     }}>
-      {/* コンテンツエリア（タブバー高さ分の余白を確保） */}
       <div style={{
-        position:'absolute',
-        top:0, left:0, right:0,
+        position:'absolute', top:0, left:0, right:0,
         bottom:`calc(${TABBAR_HEIGHT}px + env(safe-area-inset-bottom))`,
-        overflow:'hidden',
-        display:'flex',
-        flexDirection:'column',
+        overflow:'hidden', display:'flex', flexDirection:'column',
       }}>
         {renderContent()}
       </div>
 
-      {/* タブバー（完全固定） */}
       <div style={{
-        position:'absolute',
-        bottom:0, left:0, right:0,
-        display:'flex',
-        height:`${TABBAR_HEIGHT}px`,
-        background:tBarBg,
-        borderTop:`1px solid ${tBarBdr}`,
-        paddingBottom:'env(safe-area-inset-bottom)',
-        boxSizing:'content-box',
+        position:'absolute', bottom:0, left:0, right:0,
+        display:'flex', height:`${TABBAR_HEIGHT}px`,
+        background:tBarBg, borderTop:`1px solid ${tBarBdr}`,
+        paddingBottom:'env(safe-area-inset-bottom)', boxSizing:'content-box',
         transition:'background 0.8s, border-color 0.8s',
         backdropFilter: barrier?'blur(10px)':'none',
         WebkitBackdropFilter: barrier?'blur(10px)':'none',
