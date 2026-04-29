@@ -215,4 +215,312 @@ function MindTab() {
       )}
       {/* 呼吸サークル */}
       <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'12px' }}>
-        <div style={{ fontSize:'11px', color:'#a0
+        <div style={{ fontSize:'11px', color:'#a0aec0', letterSpacing:'1px' }}>
+          4-4-6 呼吸法{rounds > 0 ? ` · ${rounds}回完了 🌿` : ''}
+        </div>
+        <div onClick={handleTap} style={{ position:'relative', width:'130px', height:'130px', cursor:'pointer' }}>
+          <svg width="130" height="130" style={{ position:'absolute', top:0, left:0, transform:'rotate(-90deg)' }}>
+            <circle cx="65" cy="65" r={R} fill="none" stroke="#edf2f7" strokeWidth="6" />
+            <circle cx="65" cy="65" r={R} fill="none" stroke={color} strokeWidth="6"
+              strokeDasharray={C} strokeDashoffset={C * (1 - progress)}
+              strokeLinecap="round"
+              style={{ transition:'stroke 0.5s ease' }} />
+          </svg>
+          <div style={{ position:'absolute', inset:0, borderRadius:'50%', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', background: phase!=='idle' ? `${color}18` : '#f0f4ff', boxShadow: phase!=='idle' ? `0 0 28px ${color}44` : 'none', transition:'background 0.5s, box-shadow 0.5s' }}>
+            {phase === 'idle'
+              ? <span style={{ fontSize:'12px', color:'#a0aec0', textAlign:'center', lineHeight:1.6 }}>タップで<br/>開始</span>
+              : <>
+                  <span style={{ fontSize:'13px', fontWeight:'700', color, marginBottom:'2px' }}>{cfg.label}</span>
+                  <span style={{ fontSize:'38px', fontWeight:'800', color, lineHeight:1 }}>{countdown}</span>
+                </>
+            }
+          </div>
+        </div>
+        <p style={{ fontSize:'12px', color:'#718096', textAlign:'center', maxWidth:'220px', lineHeight:'1.7', margin:0 }}>
+          {phase === 'idle'
+            ? 'HSPの神経系を落ち着かせる呼吸法。\n会議前に3セットやってみましょう。'
+            : 'タップで終了・セッションを保存します'}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ━━━ SAFEタブ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function SafeTab({ hp, barrier, setBarrier }) {
+  const alerts = [
+    hp < 60 && '⚠️ エネルギーが低下中。重要な決断は避けましょう',
+    '📅 連続会議：2件（14:00〜）',
+    '🌙 昨夜の睡眠：6.2h（推奨より0.8h不足）',
+  ].filter(Boolean);
+
+  return (
+    <div style={{ flex:1, minHeight:0, overflowY:'auto', display:'flex', flexDirection:'column', gap:'8px' }}>
+      <div onClick={() => setBarrier(!barrier)}
+        style={{ background: barrier ? 'linear-gradient(135deg,#1e0a4e,#2d1b69)' : '#f7fafc', borderRadius:'16px', padding:'14px 16px', border:`2px solid ${barrier ? '#7c3aed' : '#e2e8f0'}`, cursor:'pointer', display:'flex', alignItems:'center', gap:'12px', transition:'all 0.5s', boxShadow: barrier ? '0 0 28px #7c3aed55' : 'none', flexShrink:0 }}>
+        <span style={{ fontSize:'32px', filter: barrier ? 'drop-shadow(0 0 10px #a78bfa)' : 'none', transition:'filter 0.5s' }}>
+          {barrier ? '🛡️' : '🔓'}
+        </span>
+        <div>
+          <div style={{ fontSize:'15px', fontWeight:'700', color: barrier ? '#e9d8fd' : '#4a5568', transition:'color 0.5s' }}>
+            {barrier ? 'バリアモード ON' : 'バリアモード OFF'}
+          </div>
+          <div style={{ fontSize:'11px', color: barrier ? '#a78bfa' : '#a0aec0', marginTop:'2px', transition:'color 0.5s' }}>
+            {barrier ? '精神的な防御シールドが展開されています' : 'タップして精神的バリアを張る'}
+          </div>
+        </div>
+      </div>
+      {alerts.map((a,i) => (
+        <div key={i} style={{ background:'#fffaf0', borderRadius:'10px', padding:'9px 12px', fontSize:'12px', color:'#744210', border:'1px solid #fbd38d', flexShrink:0 }}>{a}</div>
+      ))}
+      <div style={{ background:'#f0fff4', borderRadius:'10px', padding:'10px 12px', border:'1px solid #c6f6d5', flexShrink:0 }}>
+        <div style={{ fontSize:'11px', fontWeight:'700', color:'#276749', marginBottom:'4px' }}>💚 今日のHSPケア</div>
+        <div style={{ fontSize:'12px', color:'#2f855a', lineHeight:'1.7' }}>会議の合間に2分間、目を閉じて静かな場所へ。感覚のリセットが疲労を和らげます。</div>
+      </div>
+    </div>
+  );
+}
+
+// ━━━ ルーティンタブ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const INIT_ROUTINES = [
+  { id:1, text:'朝の深呼吸',         done:false, time:'07:00' },
+  { id:2, text:'水を飲む',           done:false, time:'08:00' },
+  { id:3, text:'タスク確認',         done:false, time:'09:00' },
+  { id:4, text:'昼休憩（完全離席）', done:false, time:'12:00' },
+  { id:5, text:'夕方の振り返り',     done:false, time:'17:00' },
+];
+
+function RoutineTab() {
+  const [routines, setRoutines] = useState(INIT_ROUTINES);
+  const done = routines.filter(r => r.done).length;
+  const pct  = Math.round(done / routines.length * 100);
+
+  return (
+    <div style={{ flex:1, minHeight:0, display:'flex', flexDirection:'column', gap:'8px', overflow:'hidden' }}>
+      <div style={{ flexShrink:0 }}>
+        <div style={{ display:'flex', justifyContent:'space-between', marginBottom:'4px' }}>
+          <span style={{ fontSize:'11px', color:'#a0aec0' }}>今日の進捗</span>
+          <span style={{ fontSize:'11px', fontWeight:'700', color:'#4a5568' }}>{done} / {routines.length}</span>
+        </div>
+        <div style={{ height:'6px', borderRadius:'6px', background:'#edf2f7', overflow:'hidden' }}>
+          <div style={{ height:'100%', width:`${pct}%`, borderRadius:'6px', background:'linear-gradient(90deg,#68d39199,#68d391)', transition:'width 0.5s ease' }} />
+        </div>
+      </div>
+      <div style={{ flex:1, overflowY:'auto', display:'flex', flexDirection:'column', gap:'6px' }}>
+        {routines.map(r => (
+          <div key={r.id}
+            onClick={() => setRoutines(routines.map(x => x.id===r.id ? {...x, done:!x.done} : x))}
+            style={{ display:'flex', alignItems:'center', gap:'10px', background: r.done ? '#f0fff4' : 'white', borderRadius:'10px', padding:'9px 12px', border:`1.5px solid ${r.done ? '#c6f6d5' : '#e2e8f0'}`, cursor:'pointer', transition:'all 0.2s', flexShrink:0 }}>
+            <div style={{ width:'20px', height:'20px', borderRadius:'50%', border:`2px solid ${r.done ? '#48bb78' : '#cbd5e0'}`, background: r.done ? '#48bb78' : 'white', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, fontSize:'11px', color:'white', fontWeight:'700', transition:'all 0.2s' }}>
+              {r.done ? '✓' : ''}
+            </div>
+            <div>
+              <div style={{ fontSize:'13px', color: r.done ? '#276749' : '#4a5568', textDecoration: r.done ? 'line-through' : 'none' }}>{r.text}</div>
+              <div style={{ fontSize:'10px', color:'#a0aec0' }}>{r.time}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ━━━ ホーム画面（クロック＋エネルギー）━━━━━━━━━━━
+function HomeView({ hp, cond, hpColor, barrier, now }) {
+  const hh = String(now.getHours()).padStart(2,'0');
+  const mm = String(now.getMinutes()).padStart(2,'0');
+  const ss = String(now.getSeconds()).padStart(2,'0');
+  const dateStr = now.toLocaleDateString('ja-JP', { month:'long', day:'numeric', weekday:'long' });
+  const greeting = now.getHours() < 12 ? 'おはようございます' : now.getHours() < 18 ? 'こんにちは' : 'お疲れさまです';
+
+  const b      = barrier;
+  const tCol   = b ? '#e9d8fd' : '#1a202c';
+  const sCol   = b ? '#a78bfa' : '#a0aec0';
+  const cBg    = b ? 'rgba(255,255,255,0.08)' : 'white';
+  const cBdr   = b ? 'rgba(167,139,250,0.25)' : '#e8edf5';
+  const subBg  = b ? 'rgba(255,255,255,0.05)' : '#f8fafc';
+  const subBdr = b ? 'rgba(167,139,250,0.15)' : '#e8edf5';
+
+  return (
+    <div style={{ flex:1, minHeight:0, display:'flex', flexDirection:'column', position:'relative', overflow:'hidden' }}>
+
+      {/* ── 背景デコレーション ── */}
+      <div style={{ position:'absolute', inset:0, pointerEvents:'none', overflow:'hidden' }}>
+        {!b ? (
+          // トゥモローランド装飾
+          <>
+            <div style={{ position:'absolute', inset:0, backgroundImage:'radial-gradient(circle, #c0caf522 1px, transparent 1px)', backgroundSize:'26px 26px' }} />
+            <svg style={{ position:'absolute', top:'-8%', left:'50%', transform:'translateX(-50%)', width:'90vw', maxWidth:'420px', opacity:0.13 }} viewBox="0 0 400 400">
+              <circle cx="200" cy="200" r="170" fill="none" stroke="#4299e1" strokeWidth="1"/>
+              <circle cx="200" cy="200" r="130" fill="none" stroke="#ecc94b" strokeWidth="0.7"/>
+              <circle cx="200" cy="200" r="90"  fill="none" stroke="#4299e1" strokeWidth="0.5"/>
+              <line x1="30"  y1="200" x2="370" y2="200" stroke="#ecc94b" strokeWidth="0.5"/>
+              <line x1="200" y1="30"  x2="200" y2="370" stroke="#4299e1" strokeWidth="0.5"/>
+              <circle cx="200" cy="200" r="4" fill="#ecc94b" opacity="0.6"/>
+            </svg>
+            <div style={{ position:'absolute', bottom:'33%', left:'8%', right:'8%', height:'1px', background:'linear-gradient(90deg,transparent,#ecc94b66,transparent)' }}/>
+          </>
+        ) : (
+          // バリア装飾（星空＋シールドリング）
+          <>
+            <svg style={{ position:'absolute', top:'-5%', left:'50%', transform:'translateX(-50%)', width:'100vw', maxWidth:'480px', opacity:0.18 }} viewBox="0 0 400 400">
+              <circle cx="200" cy="200" r="175" fill="none" stroke="#a78bfa" strokeWidth="1"/>
+              <circle cx="200" cy="200" r="135" fill="none" stroke="#7c3aed" strokeWidth="0.7"/>
+              <circle cx="200" cy="200" r="95"  fill="none" stroke="#a78bfa" strokeWidth="0.5"/>
+              <polygon points="200,25 228,108 318,108 246,160 272,243 200,191 128,243 154,160 82,108 172,108" fill="none" stroke="#a78bfa" strokeWidth="0.6"/>
+            </svg>
+            {[...Array(26)].map((_,i) => (
+              <div key={i} style={{ position:'absolute', width: i%4===0?'2.5px':'1.5px', height: i%4===0?'2.5px':'1.5px', borderRadius:'50%', background:'#a78bfa', opacity: 0.4 + (i%3)*0.15, top:`${(i*73)%97}%`, left:`${(i*137.5)%97}%` }}/>
+            ))}
+          </>
+        )}
+      </div>
+
+      {/* ── クロック（上38%）── */}
+      <div style={{ flex:'0 0 38%', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', position:'relative', zIndex:1 }}>
+        <div style={{ fontSize:'10px', letterSpacing:'3px', color:sCol, marginBottom:'8px', fontWeight:'600' }}>
+          {greeting}
+        </div>
+        <div style={{ fontSize:'clamp(58px,18vw,82px)', fontWeight:'700', letterSpacing:'-4px', color:tCol, fontVariantNumeric:'tabular-nums', lineHeight:1, textShadow: b ? '0 0 32px #a78bfa55' : 'none', transition:'color 0.8s, text-shadow 0.8s' }}>
+          {hh}<span style={{ color: b ? 'rgba(167,139,250,0.25)' : '#c0c8d8' }}>:</span>{mm}
+        </div>
+        <div style={{ display:'flex', alignItems:'center', gap:'8px', marginTop:'8px' }}>
+          <span style={{ fontSize:'13px', fontWeight:'700', fontVariantNumeric:'tabular-nums', color: b?'#9f7aea':'#4299e1', background: b?'rgba(159,122,234,0.15)':'rgba(66,153,225,0.1)', padding:'2px 9px', borderRadius:'6px', border:`1px solid ${b?'rgba(159,122,234,0.3)':'rgba(66,153,225,0.2)'}` }}>
+            {ss}<span style={{ fontSize:'9px', marginLeft:'1px', opacity:0.7 }}>s</span>
+          </span>
+          <span style={{ fontSize:'12px', color:sCol }}>{dateStr}</span>
+        </div>
+      </div>
+
+      {/* ── エネルギーカード（下62%）── */}
+      <div style={{ flex:1, padding:'0 14px 10px', display:'flex', flexDirection:'column', justifyContent:'center', position:'relative', zIndex:1 }}>
+        <div style={{ background:cBg, borderRadius:'22px', padding:'14px 16px', boxShadow: b?'0 4px 28px rgba(124,58,237,0.25)':'0 4px 20px rgba(0,0,0,0.07)', border:`1px solid ${cBdr}`, backdropFilter: b?'blur(12px)':'none', WebkitBackdropFilter: b?'blur(12px)':'none', transition:'all 0.8s' }}>
+          {/* HP行 */}
+          <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'9px' }}>
+            <div style={{ width:'46px', height:'46px', borderRadius:'50%', background: b?'rgba(167,139,250,0.18)':'linear-gradient(135deg,#f8faff,#f0f4ff)', border:`2.5px solid ${b?'#7c3aed':hpColor}`, boxShadow:`0 0 16px ${b?'#7c3aed':hpColor}44`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:'24px', flexShrink:0, transition:'all 0.8s' }}>
+              {cond.emoji}
+            </div>
+            <div style={{ flex:1 }}>
+              <div style={{ display:'flex', justifyContent:'space-between', marginBottom:'5px' }}>
+                <span style={{ fontSize:'10px', color:sCol, letterSpacing:'1px' }}>ENERGY</span>
+                <span style={{ fontSize:'12px', fontWeight:'800', color: b?'#a78bfa':hpColor, transition:'color 0.8s' }}>{hp} / 100</span>
+              </div>
+              <div style={{ height:'7px', borderRadius:'7px', background: b?'rgba(255,255,255,0.1)':'#edf2f7', overflow:'hidden' }}>
+                <div style={{ height:'100%', borderRadius:'7px', width:`${hp}%`, background: b?'linear-gradient(90deg,#7c3aed88,#9f7aea)':`linear-gradient(90deg,${hpColor}88,${hpColor})`, transition:'width 1.2s ease, background 0.8s' }}/>
+              </div>
+            </div>
+          </div>
+          {/* CONDITION */}
+          <div style={{ background:subBg, borderRadius:'10px', padding:'8px 10px', marginBottom:'8px', border:`1px solid ${subBdr}`, transition:'all 0.8s' }}>
+            <div style={{ fontSize:'9px', color:sCol, letterSpacing:'1.5px', marginBottom:'3px' }}>CONDITION</div>
+            <p style={{ fontSize:'12px', color: b?'#c4b5fd':'#4a5568', lineHeight:'1.6', margin:0, transition:'color 0.8s' }}>{cond.text}</p>
+          </div>
+          {/* 3指標 */}
+          <div style={{ display:'flex', gap:'6px' }}>
+            {[{ label:'歩数', value:DUMMY.steps.toLocaleString(), unit:'steps' },
+              { label:'睡眠', value:DUMMY.sleep,                  unit:'h'     },
+              { label:'心拍', value:DUMMY.heartRate,              unit:'bpm'   }
+            ].map(d => (
+              <div key={d.label} style={{ flex:1, background: b?'rgba(255,255,255,0.06)':'#f8fafc', borderRadius:'9px', padding:'6px 4px', border:`1px solid ${subBdr}`, textAlign:'center', transition:'all 0.8s' }}>
+                <div style={{ fontSize:'9px', color:sCol, marginBottom:'1px' }}>{d.label}</div>
+                <div style={{ fontSize:'14px', fontWeight:'700', color: b?'#e9d8fd':'#2d3748', transition:'color 0.8s' }}>{d.value}</div>
+                <div style={{ fontSize:'9px', color: b?'#7c3aed':'#cbd5e0' }}>{d.unit}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ━━━ タブ定義 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const TABS = [
+  { key:'home',    label:'ホーム',     icon:'🏠' },
+  { key:'task',    label:'タスク',     icon:'📋' },
+  { key:'mind',    label:'マインド',   icon:'🧘' },
+  { key:'safe',    label:'SAFE',       icon:'🛡️' },
+  { key:'routine', label:'ルーティン', icon:'🔄' },
+];
+
+// ━━━ メイン ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+export default function Home() {
+  const [now, setNow]       = useState(new Date());
+  const [tab, setTab]       = useState('home');
+  const [barrier, setBarrier] = useState(false);
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const hp      = calcHP(DUMMY);
+  const cond    = getCondition(hp);
+  const hpColor = getHPColor(hp);
+
+  const appBg  = barrier
+    ? 'linear-gradient(160deg,#140832 0%,#2d1b69 55%,#1a2c5c 100%)'
+    : 'linear-gradient(160deg,#ffffff 0%,#f0f4ff 100%)';
+  const tBarBg  = barrier ? 'rgba(16,6,44,0.96)' : 'white';
+  const tBarBdr = barrier ? 'rgba(167,139,250,0.2)' : '#e8edf5';
+
+  const cardStyle = {
+    background:'white', borderRadius:'22px', padding:'14px',
+    boxShadow:'0 4px 20px rgba(0,0,0,0.07)', border:'1px solid #e8edf5',
+    flex:1, display:'flex', flexDirection:'column', overflow:'hidden', minHeight:0,
+  };
+
+  function renderContent() {
+    if (tab === 'home') return (
+      <HomeView hp={hp} cond={cond} hpColor={hpColor} barrier={barrier} now={now} />
+    );
+    const titles = { task:'TASK MATRIX', mind:'MINDFULNESS', safe:'HSP SAFE ZONE', routine:'DAILY ROUTINE' };
+    return (
+      <div style={{ flex:1, minHeight:0, padding:'12px 14px 0', display:'flex', flexDirection:'column' }}>
+        <div style={cardStyle}>
+          <div style={{ fontSize:'11px', color:'#a0aec0', letterSpacing:'2px', marginBottom:'8px', flexShrink:0 }}>
+            {titles[tab]}
+          </div>
+          {tab==='task'    && <TaskTab />}
+          {tab==='mind'    && <MindTab />}
+          {tab==='safe'    && <SafeTab hp={hp} barrier={barrier} setBarrier={setBarrier} />}
+          {tab==='routine' && <RoutineTab />}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <main style={{
+      height:'100dvh', display:'flex', flexDirection:'column',
+      background:appBg,
+      fontFamily:'-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      overflow:'hidden',
+      userSelect:'none', WebkitUserSelect:'none',
+      touchAction:'manipulation',
+      transition:'background 0.8s ease',
+    }}>
+      {/* コンテンツエリア */}
+      <div style={{ flex:1, minHeight:0, overflow:'hidden', display:'flex', flexDirection:'column' }}>
+        {renderContent()}
+      </div>
+
+      {/* タブバー */}
+      <div style={{ display:'flex', background:tBarBg, borderTop:`1px solid ${tBarBdr}`, paddingBottom:'env(safe-area-inset-bottom)', flexShrink:0, transition:'background 0.8s, border-color 0.8s', backdropFilter: barrier?'blur(10px)':'none', WebkitBackdropFilter: barrier?'blur(10px)':'none' }}>
+        {TABS.map(t => {
+          const active = tab === t.key;
+          const col = active
+            ? (barrier ? '#a78bfa' : hpColor)
+            : (barrier ? '#5b3f8a' : '#a0aec0');
+          return (
+            <button key={t.key} onClick={() => setTab(t.key)}
+              style={{ flex:1, border:'none', background:'transparent', padding:'10px 0 8px', display:'flex', flexDirection:'column', alignItems:'center', gap:'3px', cursor:'pointer', color:col, transition:'color 0.3s, transform 0.35s cubic-bezier(.34,1.56,.64,1)', transform: active ? 'scale(1.22) translateY(-3px)' : 'scale(1) translateY(0)' }}>
+              <span style={{ fontSize:'20px', lineHeight:1 }}>{t.icon}</span>
+              <span style={{ fontSize:'9.5px', fontWeight: active?'700':'400' }}>{t.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </main>
+  );
+}
