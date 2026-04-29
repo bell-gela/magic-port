@@ -418,9 +418,25 @@ function HomeView({ hp, cond, hpColor, barrier, now, healthStats, isDemo, loadin
           </div>
           {/* データソース表示 */}
           {!loading && (
-            <div style={{ textAlign:'center', marginTop:'6px', fontSize:'10px', color: b?'rgba(167,139,250,0.5)':'#cbd5e0' }}>
-              {isDemo ? '⚠️ デモデータ表示中' : '✅ Apple ヘルスケアのデータ'}
+            {/* 更新ボタン */}
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:'6px' }}>
+            <div style={{ fontSize:'10px', color: b?'rgba(167,139,250,0.5)':'#cbd5e0' }}>
+              {loading ? '読み込み中...' : isDemo ? '⚠️ デモデータ' : `✅ ${new Date(health?.updatedAt).toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'})} 更新`}
             </div>
+            
+              href="shortcuts://run-shortcut?name=Magic%20Port%20更新"
+              style={{
+                fontSize:'11px', fontWeight:'700',
+                color: b ? '#a78bfa' : hpColor,
+                background: b ? 'rgba(167,139,250,0.15)' : `${hpColor}18`,
+                border: `1px solid ${b ? 'rgba(167,139,250,0.3)' : `${hpColor}44`}`,
+                borderRadius:'8px', padding:'4px 10px',
+                textDecoration:'none',
+              }}
+            >
+              ↻ 今すぐ更新
+            </a>
+          </div>
           )}
         </div>
       </div>
