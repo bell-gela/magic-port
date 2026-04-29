@@ -5,50 +5,46 @@ const redis = new Redis({
   token: process.env.UPSTASH_REDIS_REST_TOKEN,
 });
 
-// ── データを受け取る（ショートカットからPOST）──────────
+function getTodayKey() {
+  return new Date().toLocaleDateString('ja-JP', {
+    timeZone: 'Asia/Tokyo',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  }).replace(/\//g, '-');
+}
+
 export async function POST(request) {
   try {
     const body = await request.json();
     const { steps, sleep, heartRate } = body;
+    const today = getTodayKey();
 
-    // バリデーション
-    if (steps === undefined && sleep === undefined && heartRate === undefined) {
-      return Response.json({ error: 'データがありません' }, { status: 400 });
-    }
+    // 既存データを取得
+    const raw      = await redis.get(`health:${today}`);
+    const existing = raw
+      ? (typeof raw === 'string' ? JSON.parse(raw) : raw)
+      : { steps: 0, sleep: 0, heartRate: 0 };
 
-    // 今日の日付をキーにして保存
-    const today = new Date().toLocaleDateString('ja-JP', {
-      timeZone: 'Asia/Tokyo',
-      year: 'numeric', month: '2-digit', day: '2-digit',
-    }).replace(/\//g, '-');
-
-    const data = {
-      steps:     Number(steps)     || 0,
-      sleep:     Number(sleep)     || 0,
-      heartRate: Number(heartRate) || 0,
+    // sleep が -1 のときは既存の睡眠データを維持
+    const newData = {
+      steps:     Number(steps)     ?? existing.steps,
+      sleep:     sleep === -1 ? existing.sleep : (Number(sleep) ?? existing.sleep),
+      heartRate: Number(heartRate) ?? existing.heartRate,
       updatedAt: new Date().toISOString(),
     };
 
-    await redis.set(`health:${today}`, JSON.stringify(data));
-
-    return Response.json({ success: true, date: today, data });
+    await redis.set(`health:${today}`, JSON.stringify(newData));
+    return Response.json({ success: true, date: today, data: newData });
   } catch (err) {
     return Response.json({ error: err.message }, { status: 500 });
   }
 }
 
-// ── データを取得する（Magic PortのUIがGET）─────────────
 export async function GET() {
   try {
-    const today = new Date().toLocaleDateString('ja-JP', {
-      timeZone: 'Asia/Tokyo',
-      year: 'numeric', month: '2-digit', day: '2-digit',
-    }).replace(/\//g, '-');
-
-    const raw = await redis.get(`health:${today}`);
+    const today = getTodayKey();
+    const raw   = await redis.get(`health:${today}`);
 
     if (!raw) {
-      // 今日のデータがまだない場合はダミーを返す
       return Response.json({
         steps: 0, sleep: 0, heartRate: 0,
         updatedAt: null, isDemo: true,
