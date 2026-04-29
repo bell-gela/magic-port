@@ -464,6 +464,8 @@ export default function Home() {
   const tBarBg  = barrier ? 'rgba(16,6,44,0.96)' : 'white';
   const tBarBdr = barrier ? 'rgba(167,139,250,0.2)' : '#e8edf5';
 
+  const TABBAR_HEIGHT = 64;
+
   const cardStyle = {
     background:'white', borderRadius:'22px', padding:'14px',
     boxShadow:'0 4px 20px rgba(0,0,0,0.07)', border:'1px solid #e8edf5',
@@ -476,7 +478,7 @@ export default function Home() {
     );
     const titles = { task:'TASK MATRIX', mind:'MINDFULNESS', safe:'HSP SAFE ZONE', routine:'DAILY ROUTINE' };
     return (
-      <div style={{ flex:1, minHeight:0, padding:'12px 14px 0', display:'flex', flexDirection:'column' }}>
+      <div style={{ height:'100%', padding:'12px 14px 0', display:'flex', flexDirection:'column', boxSizing:'border-box' }}>
         <div style={cardStyle}>
           <div style={{ fontSize:'11px', color:'#a0aec0', letterSpacing:'2px', marginBottom:'8px', flexShrink:0 }}>
             {titles[tab]}
@@ -492,7 +494,8 @@ export default function Home() {
 
   return (
     <main style={{
-      height:'100dvh', display:'flex', flexDirection:'column',
+      position:'fixed',
+      top:0, left:0, right:0, bottom:0,
       background:appBg,
       fontFamily:'-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
       overflow:'hidden',
@@ -500,13 +503,33 @@ export default function Home() {
       touchAction:'manipulation',
       transition:'background 0.8s ease',
     }}>
-      {/* コンテンツエリア */}
-      <div style={{ flex:1, minHeight:0, overflow:'hidden', display:'flex', flexDirection:'column' }}>
+      {/* コンテンツエリア（タブバー高さ分の余白を確保） */}
+      <div style={{
+        position:'absolute',
+        top:0, left:0, right:0,
+        bottom:`calc(${TABBAR_HEIGHT}px + env(safe-area-inset-bottom))`,
+        overflow:'hidden',
+        display:'flex',
+        flexDirection:'column',
+      }}>
         {renderContent()}
       </div>
 
-      {/* タブバー */}
-      <div style={{ display:'flex', background:tBarBg, borderTop:`1px solid ${tBarBdr}`, paddingBottom:'env(safe-area-inset-bottom)', flexShrink:0, transition:'background 0.8s, border-color 0.8s', backdropFilter: barrier?'blur(10px)':'none', WebkitBackdropFilter: barrier?'blur(10px)':'none' }}>
+      {/* タブバー（完全固定） */}
+      <div style={{
+        position:'absolute',
+        bottom:0, left:0, right:0,
+        display:'flex',
+        height:`${TABBAR_HEIGHT}px`,
+        background:tBarBg,
+        borderTop:`1px solid ${tBarBdr}`,
+        paddingBottom:'env(safe-area-inset-bottom)',
+        boxSizing:'content-box',
+        transition:'background 0.8s, border-color 0.8s',
+        backdropFilter: barrier?'blur(10px)':'none',
+        WebkitBackdropFilter: barrier?'blur(10px)':'none',
+        zIndex:100,
+      }}>
         {TABS.map(t => {
           const active = tab === t.key;
           const col = active
@@ -514,7 +537,14 @@ export default function Home() {
             : (barrier ? '#5b3f8a' : '#a0aec0');
           return (
             <button key={t.key} onClick={() => setTab(t.key)}
-              style={{ flex:1, border:'none', background:'transparent', padding:'10px 0 8px', display:'flex', flexDirection:'column', alignItems:'center', gap:'3px', cursor:'pointer', color:col, transition:'color 0.3s, transform 0.35s cubic-bezier(.34,1.56,.64,1)', transform: active ? 'scale(1.22) translateY(-3px)' : 'scale(1) translateY(0)' }}>
+              style={{
+                flex:1, border:'none', background:'transparent',
+                padding:'10px 0 8px',
+                display:'flex', flexDirection:'column', alignItems:'center', gap:'3px',
+                cursor:'pointer', color:col,
+                transition:'color 0.3s, transform 0.35s cubic-bezier(.34,1.56,.64,1)',
+                transform: active ? 'scale(1.22) translateY(-3px)' : 'scale(1) translateY(0)',
+              }}>
               <span style={{ fontSize:'20px', lineHeight:1 }}>{t.icon}</span>
               <span style={{ fontSize:'9.5px', fontWeight: active?'700':'400' }}>{t.label}</span>
             </button>
