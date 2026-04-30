@@ -38,12 +38,12 @@ const QUADS = [
 ];
 
 function TaskTab() {
-  const [tasks, setTasks] = useState(INIT_TASKS);
+  function TaskTab({ tasks, setTasks }) {
   const [newTask, setNewTask] = useState('');
   const [quad, setQuad] = useState('do');
   function add() {
     if (!newTask.trim()) return;
-    setTasks([...tasks, { id: Date.now(), text: newTask.trim(), quad }]);
+    setTasks(prev => [...prev, { id: Date.now(), text: newTask.trim(), quad }]);
     setNewTask('');
   }
   return (
@@ -477,6 +477,7 @@ export default function Home() {
   const [now, setNow]         = useState(new Date());
   const [tab, setTab]         = useState('home');
   const [barrier, setBarrier] = useState(false);
+  const [tasks, setTasks]     = useState(INIT_TASKS);  // ← 追加
   const [health, setHealth]   = useState({ steps:0, sleep:0, heartRate:0, isDemo:true, updatedAt:null });
   const [loading, setLoading] = useState(true);
 
@@ -535,11 +536,13 @@ export default function Home() {
       <div style={{ height:'100%', padding:'12px 14px 0', display:'flex', flexDirection:'column', boxSizing:'border-box' }}>
         <div style={cardStyle}>
           <div style={{ fontSize:'11px', color:'#a0aec0', letterSpacing:'2px', marginBottom:'8px', flexShrink:0 }}>{titles[tab]}</div>
-          {tab==='task'    && <TaskTab />}
-          {tab==='cleanse' && <CleanseTab onAddTask={(text, quad) => {}} />}
+          {tab==='task'    && <TaskTab tasks={tasks} setTasks={setTasks} />}
+          {tab==='cleanse' && <CleanseTab onAddTask={(text, quad) => {
+            setTasks(prev => [...prev, { id: Date.now(), text, quad }]);
+            setTab('task');
+          }} />}
           {tab==='mind'    && <MindTab />}
-          {tab==='safe'    && <SafeTab hp={hp} barrier={barrier} setBarrier={setBarrier} />}
-        </div>
+          {tab==='safe'    && <SafeTab hp={hp} barrier={barrier} setBarrier={setBarrier} />}        </div>
       </div>
     );
   }
