@@ -208,6 +208,86 @@ function MindTab() {
     </div>
   );
 }
+// ━━━ 思考クレンジングタブ ━━━━━━━━━━━━━━━━━━━━━━━━━
+function CleanseTab({ onAddTask }) {
+  const [input, setInput]     = useState('');
+  const [loading, setLoading] = useState(false);
+  const [result, setResult]   = useState(null);
+  const [history, setHistory] = useState([]);
+
+  async function analyse() {
+    if (!input.trim() || loading) return;
+    setLoading(true);
+    setResult(null);
+    try {
+      const res  = await fetch('/api/cleanse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: input }),
+      });
+      const data = await res.json();
+      setResult(data);
+      setHistory(prev => [{ ...data, text: input, id: Date.now() }, ...prev.slice(0, 9)]);
+      if (data.type === 'task') onAddTask(data.summary, data.quad);
+    } catch (e) {
+      setResult({ type: 'error', comment: 'エラーが発生しました。もう一度試してください。' });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const TYPE_CONFIG = {
+    trash: { label: 'ゴミ箱へ',   emoji: '🗑️', color: '#a0aec0', bg: '#f7fafc',  msg: '手放しました。軽くなりましたか？' },
+    idea:  { label: 'アイデア！', emoji: '💡', color: '#f6ad55', bg: '#fffaf0',  msg: 'すてきなアイデアです。大切に保存しました。' },
+    task:  { label: 'タスクへ',   emoji: '📋', color: '#63b3ed', bg: '#ebf8ff',  msg: 'タスク行列に追加しました。' },
+  };
+
+  return (
+    <div style={{ flex:1, minHeight:0, display:'flex', flexDirection:'column', gap:'10px', overflow:'hidden' }}>
+      {/* 入力エリア */}
+      <div style={{ flexShrink:0 }}>
+        <textarea
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          placeholder="頭の中のモヤモヤ、アイデア、やること…なんでも吐き出してください"
+          style={{ width:'100%', minHeight:'80px', border:'1.5px solid #e2e8f0', borderRadius:'14px', padding:'10px 12px', fontSize:'13px', color:'#2d3748', resize:'none', outline:'none', fontFamily:'inherit', boxSizing:'border-box', lineHeight:'1.6' }}
+        />
+        <button onClick={analyse} disabled={loading || !input.trim()}
+          style={{ width:'100%', marginTop:'6px', padding:'10px', borderRadius:'12px', border:'none', background: loading||!input.trim() ? '#e2e8f0' : 'linear-gradient(135deg,#667eea,#764ba2)', color: loading||!input.trim() ? '#a0aec0' : 'white', fontSize:'13px', fontWeight:'700', cursor: loading||!input.trim() ? 'not-allowed' : 'pointer', transition:'all 0.3s' }}>
+          {loading ? '🤖 分析中...' : '✨ クレンジング'}
+        </button>
+      </div>
+
+      {/* 結果表示 */}
+      {result && !result.error && (
+        <div style={{ background: TYPE_CONFIG[result.type]?.bg ?? '#f7fafc', borderRadius:'14px', padding:'12px 14px', border:`1.5px solid ${TYPE_CONFIG[result.type]?.color ?? '#a0aec0'}44`, flexShrink:0 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'6px' }}>
+            <span style={{ fontSize:'22px' }}>{TYPE_CONFIG[result.type]?.emoji}</span>
+            <span style={{ fontSize:'12px', fontWeight:'700', color: TYPE_CONFIG[result.type]?.color }}>{TYPE_CONFIG[result.type]?.label}</span>
+            <span style={{ fontSize:'12px', color:'#4a5568', flex:1 }}>「{result.summary}」</span>
+          </div>
+          <p style={{ fontSize:'12px', color:'#718096', lineHeight:'1.6', margin:0 }}>🤖 {result.comment}</p>
+        </div>
+      )}
+
+      {/* 履歴 */}
+      <div style={{ flex:1, overflowY:'auto', display:'flex', flexDirection:'column', gap:'5px' }}>
+        {history.length > 0 && (
+          <div style={{ fontSize:'10px', color:'#a0aec0', letterSpacing:'1px', marginBottom:'2px', flexShrink:0 }}>HISTORY</div>
+        )}
+        {history.map(h => (
+          <div key={h.id} style={{ display:'flex', alignItems:'center', gap:'8px', background:'white', borderRadius:'10px', padding:'7px 10px', border:'1px solid #e2e8f0', flexShrink:0 }}>
+            <span style={{ fontSize:'16px' }}>{TYPE_CONFIG[h.type]?.emoji ?? '❓'}</span>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontSize:'12px', color:'#4a5568', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{h.text}</div>
+              <div style={{ fontSize:'10px', color:'#a0aec0', marginTop:'1px' }}>{TYPE_CONFIG[h.type]?.label} · {h.summary}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function SafeTab({ hp, barrier, setBarrier }) {
   const alerts = [
