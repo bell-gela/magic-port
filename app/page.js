@@ -466,11 +466,11 @@ function HomeView({ hp, cond, hpColor, barrier, now, healthStats, isDemo, loadin
 }
 
 const TABS = [
-  { key:'home',    label:'ホーム',     icon:'🏠' },
-  { key:'task',    label:'タスク',     icon:'📋' },
-  { key:'mind',    label:'マインド',   icon:'🧘' },
-  { key:'safe',    label:'SAFE',       icon:'🛡️' },
-  { key:'routine', label:'ルーティン', icon:'🔄' },
+  { key:'home',    label:'ホーム',   icon:'🏠' },
+  { key:'task',    label:'タスク',   icon:'📋' },
+  { key:'cleanse', label:'クレンズ', icon:'🧹' },
+  { key:'mind',    label:'マインド', icon:'🧘' },
+  { key:'safe',    label:'SAFE',     icon:'🛡️' },
 ];
 
 export default function Home() {
@@ -531,15 +531,14 @@ export default function Home() {
       <HomeView hp={hp} cond={cond} hpColor={hpColor} barrier={barrier} now={now}
         healthStats={healthStats} isDemo={health.isDemo} loading={loading} updatedAt={health.updatedAt} />
     );
-    const titles = { task:'TASK MATRIX', mind:'MINDFULNESS', safe:'HSP SAFE ZONE', routine:'DAILY ROUTINE' };
-    return (
+   const titles = { task:'TASK MATRIX', cleanse:'MIND CLEANSE', mind:'MINDFULNESS', safe:'HSP SAFE ZONE' };    return (
       <div style={{ height:'100%', padding:'12px 14px 0', display:'flex', flexDirection:'column', boxSizing:'border-box' }}>
         <div style={cardStyle}>
           <div style={{ fontSize:'11px', color:'#a0aec0', letterSpacing:'2px', marginBottom:'8px', flexShrink:0 }}>{titles[tab]}</div>
           {tab==='task'    && <TaskTab />}
+          {tab==='cleanse' && <CleanseTab onAddTask={(text, quad) => {}} />}
           {tab==='mind'    && <MindTab />}
           {tab==='safe'    && <SafeTab hp={hp} barrier={barrier} setBarrier={setBarrier} />}
-          {tab==='routine' && <RoutineTab />}
         </div>
       </div>
     );
