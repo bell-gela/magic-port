@@ -541,6 +541,9 @@ export default function Home() {
             setTasks(prev => [...prev, { id: Date.now(), text, quad }]);
             setTab('task');
           }} />}
+            setTasks(prev => [...prev, { id: Date.now(), text, quad }]);
+            setTab('task');
+          }} />}
           {tab==='mind'    && <MindTab />}
           {tab==='safe'    && <SafeTab hp={hp} barrier={barrier} setBarrier={setBarrier} />}        </div>
       </div>
