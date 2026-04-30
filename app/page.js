@@ -133,23 +133,143 @@ function MindTab() {
   const [countdown, setCountdown]=useState(0);
   const [rounds, setRounds]=useState(0);
   const [sessions, setSessions]=useState([]);
-  const rafRef=useRef(null); const startRef=useRef(0); const phaseRef=useRef('idle'); const roundsRef=useRef(0);
+  const rafRef=useRef(null); const startRef=useRef(0);
+  const phaseRef=useRef('idle'); const roundsRef=useRef(0);
 
   useEffect(() => {
     try { const r=localStorage.getItem('mp_mind_v1'); if(r) setSessions(JSON.parse(r)); } catch {}
     return () => {
       if(rafRef.current) cancelAnimationFrame(rafRef.current);
-      if(roundsRef.current>0) {
-        try {
-          const r=localStorage.getItem('mp_mind_v1'); const prev=r?JSON.parse(r):[];
-          const key=todayKey(); const idx=prev.findIndex(s=>s.date===key);
-          const next=idx>=0?prev.map((s,i)=>i===idx?{...s,count:s.count+roundsRef.current}:s):[...prev,{date:key,count:roundsRef.current}];
-          localStorage.setItem('mp_mind_v1',JSON.stringify(next));
-        } catch {}
-      }
     };
   }, []);
 
+  function persist(r) {
+    if(r<=0) return; const key=todayKey();
+    setSessions(prev => {
+      const idx=prev.findIndex(s=>s.date===key);
+      const next=idx>=0
+        ? prev.map((s,i)=>i===idx?{...s,count:s.count+r}:s)
+        : [...prev,{date:key,count:r}];
+      try { localStorage.setItem('mp_mind_v1',JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }
+
+  function runLoop() {
+    if(rafRef.current) cancelAnimationFrame(rafRef.current);
+    startRef.current=performance.now();
+    function tick(now) {
+      const elapsed=(now-startRef.current)/1000;
+      const cfg=BREATH[phaseRef.current];
+      const prog=Math.min(elapsed/cfg.dur,1);
+      setProgress(prog);
+      setCountdown(Math.max(0,Math.ceil(cfg.dur-elapsed)));
+      if(prog>=1) {
+        if(phaseRef.current==='exhale'){
+          roundsRef.current+=1;
+          setRounds(roundsRef.current);
+        }
+        phaseRef.current=cfg.next;
+        setPhase(cfg.next);
+        startRef.current=performance.now();
+      }
+      rafRef.current=requestAnimationFrame(tick);
+    }
+    rafRef.current=requestAnimationFrame(tick);
+  }
+
+  function handleTap() {
+    if(phase==='idle'){
+      roundsRef.current=0; setRounds(0);
+      phaseRef.current='inhale'; setPhase('inhale');
+      runLoop();
+    } else {
+      cancelAnimationFrame(rafRef.current); rafRef.current=null;
+      persist(roundsRef.current);
+      phaseRef.current='idle'; setPhase('idle');
+      setProgress(0); setCountdown(0);
+    }
+  }
+
+  const top3=[...sessions].sort((a,b)=>b.count-a.count).slice(0,3);
+  const cfg=phase!=='idle'?BREATH[phase]:null;
+  const color=cfg?.color??'#e2e8f0';
+
+  // 画面幅の65%をサークルサイズに（最大200px）
+  const circleSize = Math.min(Math.round(window.innerWidth * 0.65), 200);
+  const R = (circleSize / 2) - 8;
+  const C = 2 * Math.PI * R;
+
+  return (
+    <div style={{ flex:1, minHeight:0, display:'flex', flexDirection:'column', gap:'8px', overflow:'hidden' }}>
+
+      {/* ランキング */}
+      {top3.length>0 && (
+        <div style={{ background:'#f8fafc', borderRadius:'14px', padding:'10px 12px', border:'1px solid #e2e8f0', flexShrink:0 }}>
+          <div style={{ fontSize:'10px', color:'#a0aec0', letterSpacing:'1.5px', marginBottom:'6px' }}>🏆 BREATHING RECORD</div>
+          <div style={{ display:'flex', gap:'6px' }}>
+            {top3.map((s,i) => (
+              <div key={s.date} style={{ flex:1, textAlign:'center', background:'white', borderRadius:'10px', padding:'7px 4px', border:`1.5px solid ${['#FFD70033','#C0C0C033','#CD7F3233'][i]}` }}>
+                <div style={{ fontSize:'16px' }}>{['🥇','🥈','🥉'][i]}</div>
+                <div style={{ fontSize:'15px', fontWeight:'800', color:'#2d3748' }}>{s.count}<span style={{ fontSize:'10px', color:'#a0aec0' }}>回</span></div>
+                <div style={{ fontSize:'10px', color:'#a0aec0' }}>{s.date.slice(5).replace('-','/')}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* メインサークル */}
+      <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'16px' }}>
+
+        {/* セッション中のリアルタイムカウント */}
+        <div style={{ fontSize:'12px', color:'#a0aec0', letterSpacing:'1px', height:'18px' }}>
+          {phase==='idle'
+            ? '4-4-6 呼吸法'
+            : <span style={{ color: color, fontWeight:'700' }}>セッション中 · {rounds}回完了</span>
+          }
+        </div>
+
+        {/* サークル本体 */}
+        <div onClick={handleTap}
+          style={{ position:'relative', width:`${circleSize}px`, height:`${circleSize}px`, cursor:'pointer', flexShrink:0 }}>
+          <svg width={circleSize} height={circleSize}
+            style={{ position:'absolute', top:0, left:0, transform:'rotate(-90deg)' }}>
+            <circle cx={circleSize/2} cy={circleSize/2} r={R}
+              fill="none" stroke="#edf2f7" strokeWidth="8"/>
+            <circle cx={circleSize/2} cy={circleSize/2} r={R}
+              fill="none" stroke={color} strokeWidth="8"
+              strokeDasharray={C} strokeDashoffset={C*(1-progress)}
+              strokeLinecap="round"
+              style={{ transition:'stroke 0.5s ease' }}/>
+          </svg>
+          <div style={{ position:'absolute', inset:0, borderRadius:'50%', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', background:phase!=='idle'?`${color}18`:'#f0f4ff', boxShadow:phase!=='idle'?`0 0 36px ${color}44`:'none', transition:'background 0.5s, box-shadow 0.5s' }}>
+            {phase==='idle' ? (
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'6px' }}>
+                <span style={{ fontSize:'32px' }}>🫁</span>
+                <span style={{ fontSize:'14px', color:'#a0aec0', textAlign:'center', lineHeight:1.5 }}>タップで開始</span>
+              </div>
+            ) : (
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'4px' }}>
+                <span style={{ fontSize:'16px', fontWeight:'700', color, letterSpacing:'1px' }}>{cfg.label}</span>
+                <span style={{ fontSize:`${circleSize * 0.28}px`, fontWeight:'800', color, lineHeight:1, fontVariantNumeric:'tabular-nums' }}>{countdown}</span>
+                <span style={{ fontSize:'12px', color:`${color}99` }}>秒</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 説明・停止ヒント */}
+        <p style={{ fontSize:'12px', color:'#718096', textAlign:'center', maxWidth:'240px', lineHeight:'1.7', margin:0, flexShrink:0 }}>
+          {phase==='idle'
+            ? 'HSPの神経系を落ち着かせる呼吸法。\n会議前に3セットやってみましょう。'
+            : 'タップするとセッション終了・記録を保存します'
+          }
+        </p>
+      </div>
+    </div>
+  );
+}
   function persist(r) {
     if(r<=0) return; const key=todayKey();
     setSessions(prev => {
