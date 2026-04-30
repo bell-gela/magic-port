@@ -416,8 +416,6 @@ function HomeView({ hp, cond, hpColor, barrier, now, healthStats, isDemo, loadin
               </div>
             ))}
           </div>
-          {/* データソース表示 */}
-          {!loading && (
             {/* 更新ボタン */}
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:'6px' }}>
             <div style={{ fontSize:'10px', color: b?'rgba(167,139,250,0.5)':'#cbd5e0' }}>
