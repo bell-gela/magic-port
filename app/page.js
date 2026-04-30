@@ -249,22 +249,134 @@ function CleanseTab({ onAddTask }) {
 }
 
 function SafeTab({ hp, barrier, setBarrier }) {
-  const alerts=[hp<60&&'⚠️ エネルギーが低下中。重要な決断は避けましょう','📅 連続会議：2件（14:00〜）','🌙 昨夜の睡眠：記録済み'].filter(Boolean);
+  function SafeTab({ hp, barrier, setBarrier }) {
+  const [report, setReport]       = useState(null);
+  const [reporting, setReporting] = useState(false);
+  const [reported, setReported]   = useState(false);
+
+  async function fetchReport() {
+    setReporting(true);
+    try {
+      // 過去7日分のデータを取得
+      const res  = await fetch('/api/health?mode=weekly');
+      const { days } = await res.json();
+
+      // AIレポートを生成
+      const res2 = await fetch('/api/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ days }),
+      });
+      const data = await res2.json();
+      setReport(data);
+      setReported(true);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setReporting(false);
+    }
+  }
+
+  const alerts = [
+    hp < 60 && '⚠️ エネルギーが低下中。重要な決断は避けましょう',
+    '📅 連続会議：2件（14:00〜）',
+  ].filter(Boolean);
+
   return (
     <div style={{ flex:1, minHeight:0, overflowY:'auto', display:'flex', flexDirection:'column', gap:'8px' }}>
-      <div onClick={()=>setBarrier(!barrier)}
+
+      {/* バリアモードボタン */}
+      <div onClick={() => setBarrier(!barrier)}
         style={{ background:barrier?'linear-gradient(135deg,#1e0a4e,#2d1b69)':'#f7fafc', borderRadius:'16px', padding:'14px 16px', border:`2px solid ${barrier?'#7c3aed':'#e2e8f0'}`, cursor:'pointer', display:'flex', alignItems:'center', gap:'12px', transition:'all 0.5s', boxShadow:barrier?'0 0 28px #7c3aed55':'none', flexShrink:0 }}>
-        <span style={{ fontSize:'32px', filter:barrier?'drop-shadow(0 0 10px #a78bfa)':'none', transition:'filter 0.5s' }}>{barrier?'🛡️':'🔓'}</span>
+        <span style={{ fontSize:'32px', filter:barrier?'drop-shadow(0 0 10px #a78bfa)':'none', transition:'filter 0.5s' }}>
+          {barrier ? '🛡️' : '🔓'}
+        </span>
         <div>
-          <div style={{ fontSize:'15px', fontWeight:'700', color:barrier?'#e9d8fd':'#4a5568', transition:'color 0.5s' }}>{barrier?'バリアモード ON':'バリアモード OFF'}</div>
-          <div style={{ fontSize:'11px', color:barrier?'#a78bfa':'#a0aec0', marginTop:'2px', transition:'color 0.5s' }}>{barrier?'精神的な防御シールドが展開されています':'タップして精神的バリアを張る'}</div>
+          <div style={{ fontSize:'15px', fontWeight:'700', color:barrier?'#e9d8fd':'#4a5568', transition:'color 0.5s' }}>
+            {barrier ? 'バリアモード ON' : 'バリアモード OFF'}
+          </div>
+          <div style={{ fontSize:'11px', color:barrier?'#a78bfa':'#a0aec0', marginTop:'2px', transition:'color 0.5s' }}>
+            {barrier ? '精神的な防御シールドが展開されています' : 'タップして精神的バリアを張る'}
+          </div>
         </div>
       </div>
-      {alerts.map((a,i) => (<div key={i} style={{ background:'#fffaf0', borderRadius:'10px', padding:'9px 12px', fontSize:'12px', color:'#744210', border:'1px solid #fbd38d', flexShrink:0 }}>{a}</div>))}
+
+      {/* アラート */}
+      {alerts.map((a,i) => (
+        <div key={i} style={{ background:'#fffaf0', borderRadius:'10px', padding:'9px 12px', fontSize:'12px', color:'#744210', border:'1px solid #fbd38d', flexShrink:0 }}>{a}</div>
+      ))}
+
+      {/* HSPケアヒント */}
       <div style={{ background:'#f0fff4', borderRadius:'10px', padding:'10px 12px', border:'1px solid #c6f6d5', flexShrink:0 }}>
         <div style={{ fontSize:'11px', fontWeight:'700', color:'#276749', marginBottom:'4px' }}>💚 今日のHSPケア</div>
         <div style={{ fontSize:'12px', color:'#2f855a', lineHeight:'1.7' }}>会議の合間に2分間、目を閉じて静かな場所へ。感覚のリセットが疲労を和らげます。</div>
       </div>
+
+      {/* 週次レポートボタン */}
+      {!reported && (
+        <button onClick={fetchReport} disabled={reporting}
+          style={{ width:'100%', padding:'12px', borderRadius:'14px', border:'none', background:reporting?'#e2e8f0':'linear-gradient(135deg,#667eea,#764ba2)', color:reporting?'#a0aec0':'white', fontSize:'13px', fontWeight:'700', cursor:reporting?'not-allowed':'pointer', transition:'all 0.3s', flexShrink:0 }}>
+          {reporting ? '🤖 AIが分析中...' : '📊 今週のエネルギーレポートを生成'}
+        </button>
+      )}
+
+      {/* レポート表示 */}
+      {report && !report.error && (
+        <div style={{ background:'white', borderRadius:'16px', padding:'14px', border:'1px solid #e2e8f0', display:'flex', flexDirection:'column', gap:'10px', flexShrink:0 }}>
+          <div style={{ fontSize:'10px', color:'#a0aec0', letterSpacing:'1.5px' }}>📊 WEEKLY ENERGY REPORT</div>
+
+          {/* 総合評価 */}
+          <div style={{ background:'linear-gradient(135deg,#f0f4ff,#e9d8fd22)', borderRadius:'12px', padding:'10px 12px', border:'1px solid #e9d8fd' }}>
+            <p style={{ fontSize:'13px', color:'#2d3748', lineHeight:'1.7', margin:0, fontWeight:'600' }}>{report.overall}</p>
+          </div>
+
+          {/* スコア */}
+          <div style={{ display:'flex', gap:'8px' }}>
+            {[
+              { label:'睡眠スコア',     value:report.sleepScore,    color:'#9f7aea' },
+              { label:'活動スコア',     value:report.activityScore, color:'#63b3ed' },
+            ].map(s => (
+              <div key={s.label} style={{ flex:1, background:'#f8fafc', borderRadius:'10px', padding:'8px', border:'1px solid #e2e8f0', textAlign:'center' }}>
+                <div style={{ fontSize:'9px', color:'#a0aec0', marginBottom:'4px' }}>{s.label}</div>
+                <div style={{ fontSize:'22px', fontWeight:'800', color:s.color }}>{s.value}</div>
+                <div style={{ height:'4px', borderRadius:'4px', background:'#edf2f7', marginTop:'4px', overflow:'hidden' }}>
+                  <div style={{ height:'100%', width:`${s.value}%`, borderRadius:'4px', background:s.color, transition:'width 1s ease' }}/>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* ベスト・ワーストデイ */}
+          <div style={{ display:'flex', gap:'8px' }}>
+            <div style={{ flex:1, background:'#f0fff4', borderRadius:'10px', padding:'8px', border:'1px solid #c6f6d5', textAlign:'center' }}>
+              <div style={{ fontSize:'9px', color:'#38a169', marginBottom:'2px' }}>⚡ ベストデイ</div>
+              <div style={{ fontSize:'12px', fontWeight:'700', color:'#276749' }}>{report.bestDay?.slice(5).replace('-','/')}</div>
+            </div>
+            <div style={{ flex:1, background:'#fff5f5', borderRadius:'10px', padding:'8px', border:'1px solid #fed7d7', textAlign:'center' }}>
+              <div style={{ fontSize:'9px', color:'#e53e3e', marginBottom:'2px' }}>🔋 要回復デイ</div>
+              <div style={{ fontSize:'12px', fontWeight:'700', color:'#c53030' }}>{report.worstDay?.slice(5).replace('-','/')}</div>
+            </div>
+          </div>
+
+          {/* パターン */}
+          <div style={{ background:'#fffaf0', borderRadius:'10px', padding:'9px 12px', border:'1px solid #fbd38d' }}>
+            <div style={{ fontSize:'9px', color:'#d69e2e', marginBottom:'3px', fontWeight:'700' }}>🔍 今週のパターン</div>
+            <p style={{ fontSize:'12px', color:'#744210', lineHeight:'1.6', margin:0 }}>{report.pattern}</p>
+          </div>
+
+          {/* ベイマックスのアドバイス */}
+          <div style={{ background:'linear-gradient(135deg,#ebf8ff,#e9d8fd22)', borderRadius:'10px', padding:'10px 12px', border:'1px solid #bee3f8' }}>
+            <div style={{ fontSize:'9px', color:'#3182ce', marginBottom:'3px', fontWeight:'700' }}>🤖 ベイマックスより</div>
+            <p style={{ fontSize:'12px', color:'#2c5282', lineHeight:'1.7', margin:0 }}>{report.advice}</p>
+          </div>
+
+          {/* 再生成ボタン */}
+          <button onClick={() => { setReported(false); setReport(null); }}
+            style={{ background:'none', border:'1px solid #e2e8f0', borderRadius:'10px', padding:'7px', fontSize:'11px', color:'#a0aec0', cursor:'pointer' }}>
+            ↻ 再生成
+          </button>
+        </div>
+      )}
     </div>
   );
 }
