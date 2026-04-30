@@ -416,7 +416,17 @@ export default function Home() {
     }
     fetchHealth();
     const iv = setInterval(fetchHealth, 5*60*1000);
-    return () => clearInterval(iv);
+
+    // ショートカットから戻ってきたとき・画面を開いたときに自動更新
+    function onVisible() {
+      if (document.visibilityState === 'visible') fetchHealth();
+    }
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      clearInterval(iv);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, []);
 
   const hp      = calcHP(health);
