@@ -124,7 +124,6 @@ function MindTab() {
   const phaseRef=useRef('idle'); const roundsRef=useRef(0);
 
   useEffect(()=>{
-    // クライアントサイドでサイズ計算
     setCircleSize(Math.min(Math.round(window.innerWidth*0.65),220));
     try { const r=localStorage.getItem('mp_mind_v1'); if(r) setSessions(JSON.parse(r)); } catch {}
     return ()=>{ if(rafRef.current) cancelAnimationFrame(rafRef.current); };
@@ -147,8 +146,7 @@ function MindTab() {
       const elapsed=(now-startRef.current)/1000;
       const cfg=BREATH[phaseRef.current];
       const prog=Math.min(elapsed/cfg.dur,1);
-      setProgress(prog);
-      setCountdown(Math.max(0,Math.ceil(cfg.dur-elapsed)));
+      setProgress(prog); setCountdown(Math.max(0,Math.ceil(cfg.dur-elapsed)));
       if(prog>=1){
         if(phaseRef.current==='exhale'){ roundsRef.current+=1; setRounds(roundsRef.current); }
         phaseRef.current=cfg.next; setPhase(cfg.next); startRef.current=performance.now();
@@ -174,8 +172,7 @@ function MindTab() {
   const top3=[...sessions].sort((a,b)=>b.count-a.count).slice(0,3);
   const cfg=phase!=='idle'?BREATH[phase]:null;
   const color=cfg?.color??'#e2e8f0';
-  const R=(circleSize/2)-8;
-  const C=2*Math.PI*R;
+  const R=(circleSize/2)-8; const C=2*Math.PI*R;
 
   return (
     <div style={{ flex:1, minHeight:0, display:'flex', flexDirection:'column', gap:'8px', overflow:'hidden' }}>
@@ -208,12 +205,12 @@ function MindTab() {
               style={{ transition:'stroke 0.5s ease' }}/>
           </svg>
           <div style={{ position:'absolute', inset:0, borderRadius:'50%', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', background:phase!=='idle'?`${color}18`:'#f0f4ff', boxShadow:phase!=='idle'?`0 0 36px ${color}44`:'none', transition:'background 0.5s, box-shadow 0.5s' }}>
-            {phase==='idle' ? (
+            {phase==='idle'?(
               <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'8px' }}>
                 <span style={{ fontSize:'36px' }}>🫁</span>
                 <span style={{ fontSize:'14px', color:'#a0aec0' }}>タップで開始</span>
               </div>
-            ) : (
+            ):(
               <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'4px' }}>
                 <span style={{ fontSize:'17px', fontWeight:'700', color, letterSpacing:'1px' }}>{cfg.label}</span>
                 <span style={{ fontSize:`${Math.round(circleSize*0.28)}px`, fontWeight:'800', color, lineHeight:1, fontVariantNumeric:'tabular-nums' }}>{countdown}</span>
@@ -223,24 +220,31 @@ function MindTab() {
           </div>
         </div>
         <p style={{ fontSize:'12px', color:'#718096', textAlign:'center', maxWidth:'240px', lineHeight:'1.7', margin:0, flexShrink:0 }}>
-          {phase==='idle' ? 'HSPの神経系を落ち着かせる呼吸法。\n会議前に3セットやってみましょう。' : 'タップするとセッション終了・記録を保存します'}
+          {phase==='idle'?'HSPの神経系を落ち着かせる呼吸法。\n会議前に3セットやってみましょう。':'タップするとセッション終了・記録を保存します'}
         </p>
       </div>
     </div>
   );
 }
 
+// ━━━ クレンズタブ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 const TYPE_CONFIG = {
   trash: { label:'ゴミ箱へ',   emoji:'🗑️', color:'#a0aec0', bg:'#f7fafc' },
   idea:  { label:'アイデア！', emoji:'💡', color:'#f6ad55', bg:'#fffaf0' },
   task:  { label:'タスクへ',   emoji:'📋', color:'#63b3ed', bg:'#ebf8ff' },
 };
 
-function CleanseTab({ onAddTask }) {
-  const [input, setInput]=useState('');
+function CleanseTab({ input, setInput, result, setResult, history, setHistory, onAddTask }) {
   const [loading, setLoading]=useState(false);
-  const [result, setResult]=useState(null);
-  const [history, setHistory]=useState([]);
+  const [showLog, setShowLog]=useState(false);
+
+  // 過去ログを日付別にグループ化
+  const logByDate = history.reduce((acc, h) => {
+    const date = new Date(h.id).toLocaleDateString('ja-JP',{month:'long',day:'numeric'});
+    if(!acc[date]) acc[date]=[];
+    acc[date].push(h);
+    return acc;
+  }, {});
 
   async function analyse() {
     if(!input.trim()||loading) return;
@@ -249,25 +253,78 @@ function CleanseTab({ onAddTask }) {
       const res=await fetch('/api/cleanse',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text:input}) });
       const data=await res.json();
       setResult(data);
-      setHistory(prev=>[{...data,text:input,id:Date.now()},...prev.slice(0,9)]);
+      const newItem = {...data, text:input, id:Date.now()};
+      setHistory(prev=>{
+        const next=[newItem,...prev.slice(0,49)];
+        try { localStorage.setItem('mp_cleanse_v1',JSON.stringify(next)); } catch {}
+        return next;
+      });
       if(data.type==='task') onAddTask(data.summary,data.quad);
-      setInput('');
     } catch(e) {
       setResult({ type:'error', comment:'エラーが発生しました。もう一度試してください。' });
     } finally { setLoading(false); }
   }
 
+  function handleReset() {
+    setInput(''); setResult(null);
+  }
+
+  if(showLog) return (
+    <div style={{ flex:1, minHeight:0, display:'flex', flexDirection:'column', gap:'8px', overflow:'hidden' }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
+        <div style={{ fontSize:'11px', color:'#a0aec0', letterSpacing:'1.5px' }}>📜 CLEANSE LOG</div>
+        <button onClick={()=>setShowLog(false)}
+          style={{ background:'none', border:'1px solid #e2e8f0', borderRadius:'8px', padding:'4px 10px', fontSize:'11px', color:'#718096', cursor:'pointer' }}>
+          ← 戻る
+        </button>
+      </div>
+      <div style={{ flex:1, overflowY:'auto', display:'flex', flexDirection:'column', gap:'10px' }}>
+        {Object.keys(logByDate).length===0 ? (
+          <div style={{ textAlign:'center', color:'#a0aec0', fontSize:'13px', marginTop:'40px' }}>まだログがありません</div>
+        ) : Object.entries(logByDate).map(([date, items])=>(
+          <div key={date}>
+            <div style={{ fontSize:'11px', fontWeight:'700', color:'#4a5568', marginBottom:'5px', padding:'0 2px' }}>{date}</div>
+            <div style={{ display:'flex', flexDirection:'column', gap:'4px' }}>
+              {items.map(h=>(
+                <div key={h.id} style={{ display:'flex', alignItems:'flex-start', gap:'8px', background:'white', borderRadius:'10px', padding:'8px 10px', border:'1px solid #e2e8f0' }}>
+                  <span style={{ fontSize:'16px', flexShrink:0 }}>{TYPE_CONFIG[h.type]?.emoji??'❓'}</span>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:'12px', color:'#4a5568', lineHeight:'1.5', wordBreak:'break-all' }}>{h.text}</div>
+                    <div style={{ fontSize:'10px', color:'#a0aec0', marginTop:'2px' }}>
+                      {TYPE_CONFIG[h.type]?.label} · {h.summary}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
-    <div style={{ flex:1, minHeight:0, display:'flex', flexDirection:'column', gap:'10px', overflow:'hidden' }}>
+    <div style={{ flex:1, minHeight:0, display:'flex', flexDirection:'column', gap:'8px', overflow:'hidden' }}>
+      {/* 入力エリア */}
       <div style={{ flexShrink:0 }}>
         <textarea value={input} onChange={e=>setInput(e.target.value)}
           placeholder="頭の中のモヤモヤ、アイデア、やること…なんでも吐き出してください"
           style={{ width:'100%', minHeight:'80px', border:'1.5px solid #e2e8f0', borderRadius:'14px', padding:'10px 12px', fontSize:'13px', color:'#2d3748', resize:'none', outline:'none', fontFamily:'inherit', boxSizing:'border-box', lineHeight:'1.6' }}/>
-        <button onClick={analyse} disabled={loading||!input.trim()}
-          style={{ width:'100%', marginTop:'6px', padding:'10px', borderRadius:'12px', border:'none', background:loading||!input.trim()?'#e2e8f0':'linear-gradient(135deg,#667eea,#764ba2)', color:loading||!input.trim()?'#a0aec0':'white', fontSize:'13px', fontWeight:'700', cursor:loading||!input.trim()?'not-allowed':'pointer', transition:'all 0.3s' }}>
-          {loading?'🤖 分析中...':'✨ クレンジング'}
-        </button>
+        <div style={{ display:'flex', gap:'6px', marginTop:'6px' }}>
+          <button onClick={analyse} disabled={loading||!input.trim()}
+            style={{ flex:1, padding:'10px', borderRadius:'12px', border:'none', background:loading||!input.trim()?'#e2e8f0':'linear-gradient(135deg,#667eea,#764ba2)', color:loading||!input.trim()?'#a0aec0':'white', fontSize:'13px', fontWeight:'700', cursor:loading||!input.trim()?'not-allowed':'pointer', transition:'all 0.3s' }}>
+            {loading?'🤖 分析中...':'✨ クレンジング'}
+          </button>
+          {(input||result) && (
+            <button onClick={handleReset}
+              style={{ padding:'10px 14px', borderRadius:'12px', border:'1.5px solid #e2e8f0', background:'white', color:'#a0aec0', fontSize:'12px', cursor:'pointer' }}>
+              リセット
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* 結果表示 */}
       {result&&!result.error&&(
         <div style={{ background:TYPE_CONFIG[result.type]?.bg??'#f7fafc', borderRadius:'14px', padding:'12px 14px', border:`1.5px solid ${TYPE_CONFIG[result.type]?.color??'#a0aec0'}44`, flexShrink:0 }}>
           <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'6px' }}>
@@ -279,9 +336,25 @@ function CleanseTab({ onAddTask }) {
           {result.type==='task'&&<div style={{ fontSize:'10px', color:'#63b3ed', marginTop:'4px' }}>→ タスク行列に自動追加しました</div>}
         </div>
       )}
+
+      {/* 今日の履歴 + 過去ログボタン */}
       <div style={{ flex:1, overflowY:'auto', display:'flex', flexDirection:'column', gap:'5px' }}>
-        {history.length>0&&<div style={{ fontSize:'10px', color:'#a0aec0', letterSpacing:'1px', marginBottom:'2px', flexShrink:0 }}>HISTORY</div>}
-        {history.map(h=>(
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0, marginBottom:'2px' }}>
+          {history.length>0
+            ? <div style={{ fontSize:'10px', color:'#a0aec0', letterSpacing:'1px' }}>今日の履歴</div>
+            : <div/>
+          }
+          {history.length>0&&(
+            <button onClick={()=>setShowLog(true)}
+              style={{ background:'none', border:'1px solid #e2e8f0', borderRadius:'8px', padding:'3px 9px', fontSize:'10px', color:'#718096', cursor:'pointer' }}>
+              📜 過去ログ
+            </button>
+          )}
+        </div>
+        {history.filter(h=>{
+          const d=new Date(h.id); const t=new Date();
+          return d.getFullYear()===t.getFullYear()&&d.getMonth()===t.getMonth()&&d.getDate()===t.getDate();
+        }).map(h=>(
           <div key={h.id} style={{ display:'flex', alignItems:'center', gap:'8px', background:'white', borderRadius:'10px', padding:'7px 10px', border:'1px solid #e2e8f0', flexShrink:0 }}>
             <span style={{ fontSize:'16px' }}>{TYPE_CONFIG[h.type]?.emoji??'❓'}</span>
             <div style={{ flex:1, minWidth:0 }}>
@@ -381,10 +454,7 @@ function SafeTab({ hp, barrier, setBarrier }) {
 function BaymaxFace({ barrier, onTap, hpColor }) {
   const [blink, setBlink]=useState(false);
   useEffect(()=>{
-    const iv=setInterval(()=>{
-      setBlink(true);
-      setTimeout(()=>setBlink(false),150);
-    }, 3000+Math.random()*2000);
+    const iv=setInterval(()=>{ setBlink(true); setTimeout(()=>setBlink(false),150); },3000+Math.random()*2000);
     return ()=>clearInterval(iv);
   },[]);
   const faceColor=barrier?'#a78bfa':hpColor;
@@ -413,10 +483,10 @@ function HomeView({ hp, cond, hpColor, barrier, setBarrier, now, healthStats, is
   const subBg=b?'rgba(255,255,255,0.05)':'#f8fafc'; const subBdr=b?'rgba(167,139,250,0.15)':'#e8edf5';
   const updatedStr=updatedAt?new Date(updatedAt).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}):null;
   const apps=[
-    { name:'LINE',     icon:'💬', url:'line://',     show:true     },
-    { name:'X',        icon:'𝕏',  url:'twitter://', show:!barrier },
-    { name:'Kindle',   icon:'📚', url:'kindle://',   show:true     },
-    { name:'Obsidian', icon:'🔮', url:'obsidian://', show:true     },
+    { name:'LINE',     icon:'💬', url:'line://',     show:true    },
+    { name:'X',        icon:'𝕏',  url:'twitter://', show:!barrier},
+    { name:'Kindle',   icon:'📚', url:'kindle://',   show:true    },
+    { name:'Obsidian', icon:'🔮', url:'obsidian://', show:true    },
   ].filter(a=>a.show);
 
   return (
@@ -443,7 +513,6 @@ function HomeView({ hp, cond, hpColor, barrier, setBarrier, now, healthStats, is
         </>)}
       </div>
 
-      {/* クロック */}
       <div style={{ flex:'0 0 26%', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', position:'relative', zIndex:1 }}>
         <div style={{ fontSize:'clamp(48px,15vw,68px)', fontWeight:'700', letterSpacing:'-4px', color:tCol, fontVariantNumeric:'tabular-nums', lineHeight:1, textShadow:b?'0 0 32px #a78bfa55':'none', transition:'color 0.8s' }}>
           {hh}<span style={{ color:b?'rgba(167,139,250,0.25)':'#c0c8d8' }}>:</span>{mm}
@@ -456,7 +525,6 @@ function HomeView({ hp, cond, hpColor, barrier, setBarrier, now, healthStats, is
         </div>
       </div>
 
-      {/* ベイマックスの顔＋セリフ */}
       <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'5px', position:'relative', zIndex:1, flexShrink:0, padding:'4px 0' }}>
         <BaymaxFace barrier={barrier} onTap={()=>setBarrier(b=>!b)} hpColor={hpColor}/>
         <div style={{ fontSize:'12px', color:b?'#c4b5fd':sCol, textAlign:'center', maxWidth:'260px', lineHeight:'1.5', padding:'0 16px', fontStyle:'italic', transition:'color 0.8s' }}>
@@ -464,7 +532,6 @@ function HomeView({ hp, cond, hpColor, barrier, setBarrier, now, healthStats, is
         </div>
       </div>
 
-      {/* エネルギーカード */}
       <div style={{ flex:1, padding:'5px 12px 6px', display:'flex', flexDirection:'column', justifyContent:'center', position:'relative', zIndex:1 }}>
         <div style={{ background:cBg, borderRadius:'22px', padding:'12px 14px', boxShadow:b?'0 4px 28px rgba(124,58,237,0.25)':'0 4px 20px rgba(0,0,0,0.07)', border:`1px solid ${cBdr}`, backdropFilter:b?'blur(12px)':'none', WebkitBackdropFilter:b?'blur(12px)':'none', transition:'all 0.8s', height:'100%', display:'flex', flexDirection:'column', justifyContent:'space-between' }}>
           <div>
@@ -501,7 +568,6 @@ function HomeView({ hp, cond, hpColor, barrier, setBarrier, now, healthStats, is
         </div>
       </div>
 
-      {/* アプリショートカット */}
       <div style={{ padding:'5px 12px 6px', display:'flex', gap:'8px', justifyContent:'center', position:'relative', zIndex:1, flexShrink:0 }}>
         {apps.map(app=>(
           <a key={app.name} href={app.url}
@@ -531,7 +597,17 @@ export default function Home() {
   const [health, setHealth]=useState({ steps:0, sleep:0, heartRate:0, isDemo:true, updatedAt:null });
   const [loading, setLoading]=useState(true);
 
-  useEffect(()=>{ const t=setInterval(()=>setNow(new Date()),1000); return()=>clearInterval(t); },[]);
+  // クレンズの状態を親で管理（タブ切替で消えない）
+  const [cleanseInput, setCleanseInput]=useState('');
+  const [cleanseResult, setCleanseResult]=useState(null);
+  const [cleanseHistory, setCleanseHistory]=useState([]);
+
+  useEffect(()=>{
+    const t=setInterval(()=>setNow(new Date()),1000);
+    // localStorage から履歴を復元
+    try { const r=localStorage.getItem('mp_cleanse_v1'); if(r) setCleanseHistory(JSON.parse(r)); } catch {}
+    return()=>clearInterval(t);
+  },[]);
 
   useEffect(()=>{
     async function fetchHealth() {
@@ -577,7 +653,12 @@ export default function Home() {
         <div style={cardStyle}>
           <div style={{ fontSize:'11px', color:'#a0aec0', letterSpacing:'2px', marginBottom:'8px', flexShrink:0 }}>{titles[tab]}</div>
           {tab==='task'    && <TaskTab tasks={tasks} setTasks={setTasks}/>}
-          {tab==='cleanse' && <CleanseTab onAddTask={(text,quad)=>{ setTasks(prev=>[...prev,{id:Date.now(),text,quad}]); setTab('task'); }}/>}
+          {tab==='cleanse' && <CleanseTab
+            input={cleanseInput} setInput={setCleanseInput}
+            result={cleanseResult} setResult={setCleanseResult}
+            history={cleanseHistory} setHistory={setCleanseHistory}
+            onAddTask={(text,quad)=>{ setTasks(prev=>[...prev,{id:Date.now(),text,quad}]); setTab('task'); }}
+          />}
           {tab==='mind'    && <MindTab/>}
           {tab==='safe'    && <SafeTab hp={hp} barrier={barrier} setBarrier={setBarrier}/>}
         </div>
