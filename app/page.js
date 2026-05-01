@@ -59,16 +59,29 @@ const QUADS = [
   { key:'delete',   label:'やらない', sub:'非重要×非緊急', color:'#a0aec0', bg:'#f7fafc' },
 ];
 
-// ━━━ タスクタブ（ドラッグ＆ドロップ対応）━━━━━━━━━━━
-function TaskTab({ tasks, setTasks }) {
+// ━━━ タスクタブ（ドラッグ＆ドロップ＋アーカイブ）━━━━━
+function TaskTab({ tasks, setTasks, archived, setArchived }) {
   const [newTask, setNewTask]=useState('');
   const [quad, setQuad]=useState('do');
   const [dragState, setDragState]=useState(null);
+  const [showArchive, setShowArchive]=useState(false);
 
   function add() {
     if(!newTask.trim()) return;
     setTasks(prev=>[...prev,{id:Date.now(),text:newTask.trim(),quad}]);
     setNewTask('');
+  }
+
+  function archiveTask(id) {
+    const task = tasks.find(t=>t.id===id);
+    if(!task) return;
+    const archivedTask = {...task, archivedAt: Date.now()};
+    setArchived(prev=>{
+      const next=[archivedTask,...prev.slice(0,99)];
+      try { localStorage.setItem('mp_archived_v1',JSON.stringify(next)); } catch {}
+      return next;
+    });
+    setTasks(prev=>prev.filter(t=>t.id!==id));
   }
 
   function onDragStart(taskId, e) {
@@ -96,13 +109,58 @@ function TaskTab({ tasks, setTasks }) {
 
   const draggingTask = tasks.find(t=>t.id===dragState?.taskId);
 
+  // アーカイブ画面
+  if(showArchive) {
+    const byMonth = archived.reduce((acc,t)=>{
+      const d = new Date(t.archivedAt);
+      const key = `${d.getFullYear()}年${d.getMonth()+1}月`;
+      if(!acc[key]) acc[key]=[];
+      acc[key].push(t);
+      return acc;
+    },{});
+
+    return (
+      <div style={{ flex:1, minHeight:0, display:'flex', flexDirection:'column', gap:'8px', overflow:'hidden' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
+          <div style={{ fontSize:'11px', color:'#a0aec0', letterSpacing:'1.5px' }}>📦 TASK ARCHIVE</div>
+          <button onClick={()=>setShowArchive(false)}
+            style={{ background:'none', border:'1px solid #e2e8f0', borderRadius:'8px', padding:'4px 10px', fontSize:'11px', color:'#718096', cursor:'pointer' }}>← 戻る</button>
+        </div>
+        <div style={{ flex:1, overflowY:'auto', display:'flex', flexDirection:'column', gap:'12px' }}>
+          {Object.keys(byMonth).length===0
+            ? <div style={{ textAlign:'center', color:'#a0aec0', fontSize:'13px', marginTop:'40px' }}>まだアーカイブがありません</div>
+            : Object.entries(byMonth).map(([month,items])=>(
+              <div key={month}>
+                <div style={{ fontSize:'11px', fontWeight:'700', color:'#4a5568', marginBottom:'6px', padding:'0 2px' }}>{month}</div>
+                <div style={{ display:'flex', flexDirection:'column', gap:'4px' }}>
+                  {items.map(t=>{
+                    const q = QUADS.find(q=>q.key===t.quad);
+                    return (
+                      <div key={t.id} style={{ display:'flex', alignItems:'center', gap:'8px', background:'white', borderRadius:'10px', padding:'8px 10px', border:'1px solid #e2e8f0' }}>
+                        <div style={{ width:'8px', height:'8px', borderRadius:'50%', background:q?.color??'#a0aec0', flexShrink:0 }}/>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ fontSize:'12px', color:'#4a5568', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{t.text}</div>
+                          <div style={{ fontSize:'10px', color:'#a0aec0', marginTop:'1px' }}>{q?.label} · {new Date(t.archivedAt).toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'})}</div>
+                        </div>
+                        <span style={{ fontSize:'14px' }}>✅</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       onMouseMove={onDragMove} onTouchMove={onDragMove}
       onMouseUp={onDragEnd} onTouchEnd={onDragEnd}
       style={{ flex:1, minHeight:0, display:'flex', flexDirection:'column', gap:'8px', position:'relative' }}>
 
-      {/* ドラッグ中のゴースト */}
       {dragState && draggingTask && (
         <div style={{ position:'fixed', left:dragState.x-70, top:dragState.y-18, zIndex:1000, background:'white', borderRadius:'10px', padding:'6px 12px', fontSize:'12px', color:'#4a5568', boxShadow:'0 8px 24px rgba(0,0,0,0.18)', pointerEvents:'none', opacity:0.92, maxWidth:'140px', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
           {draggingTask.text}
@@ -112,7 +170,7 @@ function TaskTab({ tasks, setTasks }) {
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'6px', flex:1, minHeight:0 }}>
         {QUADS.map(q=>(
           <div key={q.key} data-quad={q.key}
-            style={{ background: dragState ? `${q.bg}` : q.bg, borderRadius:'12px', padding:'8px', border:`1.5px solid ${dragState?q.color+'66':q.color+'33'}`, display:'flex', flexDirection:'column', overflow:'hidden', transition:'border-color 0.2s' }}>
+            style={{ background:q.bg, borderRadius:'12px', padding:'8px', border:`1.5px solid ${dragState?q.color+'66':q.color+'33'}`, display:'flex', flexDirection:'column', overflow:'hidden', transition:'border-color 0.2s' }}>
             <div style={{ flexShrink:0, marginBottom:'5px', pointerEvents:'none' }}>
               <div style={{ fontSize:'11px', fontWeight:'700', color:q.color }}>{q.label}</div>
               <div style={{ fontSize:'9px', color:'#a0aec0' }}>{q.sub}</div>
@@ -122,19 +180,27 @@ function TaskTab({ tasks, setTasks }) {
                 <div key={task.id}
                   onMouseDown={e=>onDragStart(task.id,e)}
                   onTouchStart={e=>onDragStart(task.id,e)}
-                  style={{ background:'white', borderRadius:'7px', padding:'5px 7px', fontSize:'11px', color:'#4a5568', display:'flex', alignItems:'center', justifyContent:'space-between', boxShadow:'0 1px 3px rgba(0,0,0,.05)', cursor:'grab', opacity: dragState?.taskId===task.id ? 0.3 : 1, transition:'opacity 0.2s', userSelect:'none' }}>
+                  style={{ background:'white', borderRadius:'7px', padding:'5px 7px', fontSize:'11px', color:'#4a5568', display:'flex', alignItems:'center', justifyContent:'space-between', boxShadow:'0 1px 3px rgba(0,0,0,.05)', cursor:'grab', opacity:dragState?.taskId===task.id?0.3:1, transition:'opacity 0.2s', userSelect:'none' }}>
                   <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1, pointerEvents:'none' }}>⠿ {task.text}</span>
-                  <button
-                    onMouseDown={e=>e.stopPropagation()}
-                    onTouchStart={e=>e.stopPropagation()}
-                    onClick={()=>setTasks(prev=>prev.filter(t=>t.id!==task.id))}
-                    style={{ background:'none', border:'none', color:'#cbd5e0', fontSize:'13px', cursor:'pointer', padding:'0 0 0 4px', flexShrink:0 }}>×</button>
+                  <div style={{ display:'flex', gap:'2px', flexShrink:0 }}>
+                    <button
+                      onMouseDown={e=>e.stopPropagation()}
+                      onTouchStart={e=>e.stopPropagation()}
+                      onClick={()=>archiveTask(task.id)}
+                      style={{ background:'none', border:'none', color:'#68d391', fontSize:'13px', cursor:'pointer', padding:'0 2px' }} title="完了">✓</button>
+                    <button
+                      onMouseDown={e=>e.stopPropagation()}
+                      onTouchStart={e=>e.stopPropagation()}
+                      onClick={()=>setTasks(prev=>prev.filter(t=>t.id!==task.id))}
+                      style={{ background:'none', border:'none', color:'#cbd5e0', fontSize:'13px', cursor:'pointer', padding:'0 0 0 2px' }}>×</button>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
         ))}
       </div>
+
       <div style={{ display:'flex', gap:'6px', flexShrink:0 }}>
         <select value={quad} onChange={e=>setQuad(e.target.value)}
           style={{ border:'1.5px solid #e2e8f0', borderRadius:'10px', padding:'6px 8px', fontSize:'12px', color:'#4a5568', background:'white', outline:'none' }}>
@@ -146,6 +212,11 @@ function TaskTab({ tasks, setTasks }) {
         <button onClick={add}
           style={{ background:'#4a5568', color:'white', border:'none', borderRadius:'10px', padding:'6px 14px', fontSize:'16px', cursor:'pointer' }}>＋</button>
       </div>
+
+      <button onClick={()=>setShowArchive(true)}
+        style={{ width:'100%', padding:'7px', borderRadius:'10px', border:'1px solid #e2e8f0', background:'white', color:'#718096', fontSize:'11px', cursor:'pointer', flexShrink:0 }}>
+        📦 完了タスクのアーカイブを見る（{archived.length}件）
+      </button>
     </div>
   );
 }
@@ -373,7 +444,7 @@ function CleanseTab({ input, setInput, result, setResult, history, setHistory, o
       )}
       <div style={{ flex:1, overflowY:'auto', display:'flex', flexDirection:'column', gap:'5px' }}>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0, marginBottom:'2px' }}>
-          {history.length>0 ? <div style={{ fontSize:'10px', color:'#a0aec0', letterSpacing:'1px' }}>今日の履歴</div> : <div/>}
+          {history.length>0?<div style={{ fontSize:'10px', color:'#a0aec0', letterSpacing:'1px' }}>今日の履歴</div>:<div/>}
           {history.length>0&&(
             <button onClick={()=>setShowLog(true)}
               style={{ background:'none', border:'1px solid #e2e8f0', borderRadius:'8px', padding:'3px 9px', fontSize:'10px', color:'#718096', cursor:'pointer' }}>📜 過去ログ</button>
@@ -396,7 +467,6 @@ function CleanseTab({ input, setInput, result, setResult, history, setHistory, o
   );
 }
 
-// ━━━ SAFEタブ（レポート修正版）━━━━━━━━━━━━━━━━━━━
 function SafeTab({ hp, barrier, setBarrier }) {
   const [report, setReport]=useState(null);
   const [reporting, setReporting]=useState(false);
@@ -408,8 +478,7 @@ function SafeTab({ hp, barrier, setBarrier }) {
     try {
       const res=await fetch('/api/health?mode=weekly');
       const json=await res.json();
-      const days=json.days ?? [];
-
+      const days=json.days??[];
       const res2=await fetch('/api/report',{
         method:'POST',
         headers:{'Content-Type':'application/json'},
@@ -417,12 +486,11 @@ function SafeTab({ hp, barrier, setBarrier }) {
       });
       const text=await res2.text();
       let data;
-      try { data=JSON.parse(text); } catch { throw new Error('レスポンスのパースに失敗しました'); }
+      try { data=JSON.parse(text); } catch { throw new Error('レスポンスのパースに失敗: '+text.slice(0,100)); }
       if(data.error) throw new Error(data.error);
       setReport(data); setReported(true);
-    } catch(e){
-      setReportError(e.message);
-    } finally { setReporting(false); }
+    } catch(e){ setReportError(e.message); }
+    finally{ setReporting(false); }
   }
 
   const alerts=[hp<60&&'⚠️ エネルギーが低下中。重要な決断は避けましょう','📅 連続会議：2件（14:00〜）'].filter(Boolean);
@@ -442,20 +510,15 @@ function SafeTab({ hp, barrier, setBarrier }) {
         <div style={{ fontSize:'11px', fontWeight:'700', color:'#276749', marginBottom:'4px' }}>💚 今日のHSPケア</div>
         <div style={{ fontSize:'12px', color:'#2f855a', lineHeight:'1.7' }}>会議の合間に2分間、目を閉じて静かな場所へ。感覚のリセットが疲労を和らげます。</div>
       </div>
-
       {reportError&&(
-        <div style={{ background:'#fff5f5', borderRadius:'10px', padding:'9px 12px', fontSize:'12px', color:'#c53030', border:'1px solid #fed7d7', flexShrink:0 }}>
-          ⚠️ {reportError}
-        </div>
+        <div style={{ background:'#fff5f5', borderRadius:'10px', padding:'9px 12px', fontSize:'11px', color:'#c53030', border:'1px solid #fed7d7', flexShrink:0 }}>⚠️ {reportError}</div>
       )}
-
       {!reported&&(
         <button onClick={fetchReport} disabled={reporting}
           style={{ width:'100%', padding:'12px', borderRadius:'14px', border:'none', background:reporting?'#e2e8f0':'linear-gradient(135deg,#667eea,#764ba2)', color:reporting?'#a0aec0':'white', fontSize:'13px', fontWeight:'700', cursor:reporting?'not-allowed':'pointer', transition:'all 0.3s', flexShrink:0 }}>
           {reporting?'🤖 AIが分析中...':'📊 今週のエネルギーレポートを生成'}
         </button>
       )}
-
       {report&&(
         <div style={{ background:'white', borderRadius:'16px', padding:'14px', border:'1px solid #e2e8f0', display:'flex', flexDirection:'column', gap:'10px', flexShrink:0 }}>
           <div style={{ fontSize:'10px', color:'#a0aec0', letterSpacing:'1.5px' }}>📊 WEEKLY ENERGY REPORT</div>
@@ -508,7 +571,7 @@ function BaymaxFace({ barrier, onTap, hpColor }) {
   const faceColor=barrier?'#a78bfa':hpColor;
   return (
     <div onClick={onTap} style={{ cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:'3px' }}>
-      <div style={{ position:'relative', width:'64px', height:'38px', background:barrier?'rgba(167,139,250,0.15)':'rgba(255,255,255,0.8)', borderRadius:'20px', border:`2px solid ${faceColor}44`, display:'flex', alignItems:'center', justifyContent:'center', gap:'10px', boxShadow:`0 2px 12px ${faceColor}22`, transition:'all 0.5s' }}>
+      <div style={{ width:'64px', height:'38px', background:barrier?'rgba(167,139,250,0.15)':'rgba(255,255,255,0.8)', borderRadius:'20px', border:`2px solid ${faceColor}44`, display:'flex', alignItems:'center', justifyContent:'center', gap:'10px', boxShadow:`0 2px 12px ${faceColor}22`, transition:'all 0.5s' }}>
         <div style={{ width:'10px', height:blink?'2px':'10px', borderRadius:'50%', background:faceColor, transition:'height 0.08s ease', marginTop:blink?'4px':'0' }}/>
         <div style={{ width:'10px', height:blink?'2px':'10px', borderRadius:'50%', background:faceColor, transition:'height 0.08s ease', marginTop:blink?'4px':'0' }}/>
       </div>
@@ -519,42 +582,43 @@ function BaymaxFace({ barrier, onTap, hpColor }) {
   );
 }
 
-// ━━━ AIピッカー ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ━━━ AI ポップアップ（画面中央） ━━━━━━━━━━━━━━━━━━
 const AI_APPS = [
-  { name:'Gemini',     icon:'✨', url:'https://gemini.google.com' },
-  { name:'ChatGPT',    icon:'🤖', url:'chatgpt://'                },
-  { name:'Claude',     icon:'🧡', url:'https://claude.ai'         },
-  { name:'NbookLM',   icon:'📓', url:'https://notebooklm.google.com' },
+  { name:'Gemini',      icon:'✨', url:'googlegeminiai://',           label:'Google Gemini'   },
+  { name:'ChatGPT',     icon:'🤖', url:'chatgpt://',                  label:'OpenAI ChatGPT'  },
+  { name:'Claude',      icon:'🧡', url:'claude://',                   label:'Anthropic Claude'},
+  { name:'NotebookLM',  icon:'📓', url:'https://notebooklm.google.com', label:'Google NbookLM'},
 ];
 
-function AIShortcut({ barrier }) {
-  const [open, setOpen]=useState(false);
+function AIPopup({ onClose, barrier }) {
   const b=barrier;
   return (
-    <div style={{ flex:1, position:'relative' }}>
-      <div onClick={()=>setOpen(o=>!o)}
-        style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'3px', padding:'7px 4px', background:b?'rgba(255,255,255,0.06)':'white', borderRadius:'14px', border:`1px solid ${b?'rgba(167,139,250,0.2)':'#e8edf5'}`, cursor:'pointer', boxShadow:'0 2px 8px rgba(0,0,0,0.05)', transition:'all 0.3s' }}>
-        <span style={{ fontSize:'22px', lineHeight:1 }}>🧠</span>
-        <span style={{ fontSize:'9px', color:b?'#a78bfa':'#a0aec0', fontWeight:'600' }}>AI</span>
+    <>
+      {/* オーバーレイ */}
+      <div onClick={onClose} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', zIndex:300, backdropFilter:'blur(4px)' }}/>
+      {/* ポップアップ */}
+      <div style={{ position:'fixed', top:'50%', left:'50%', transform:'translate(-50%,-50%)', zIndex:301, background:'white', borderRadius:'20px', padding:'20px', boxShadow:'0 20px 60px rgba(0,0,0,0.25)', width:'240px', display:'flex', flexDirection:'column', gap:'10px' }}>
+        <div style={{ fontSize:'12px', fontWeight:'700', color:'#4a5568', textAlign:'center', letterSpacing:'1px' }}>🧠 AI を選択</div>
+        {AI_APPS.map(a=>(
+          <a key={a.name} href={a.url} onClick={onClose}
+            style={{ display:'flex', alignItems:'center', gap:'12px', padding:'10px 14px', borderRadius:'12px', textDecoration:'none', background:'#f8fafc', border:'1px solid #e2e8f0', color:'#2d3748', transition:'background 0.2s' }}>
+            <span style={{ fontSize:'22px', width:'28px', textAlign:'center' }}>{a.icon}</span>
+            <div>
+              <div style={{ fontSize:'13px', fontWeight:'700' }}>{a.name}</div>
+              <div style={{ fontSize:'10px', color:'#a0aec0' }}>{a.label}</div>
+            </div>
+          </a>
+        ))}
+        <button onClick={onClose}
+          style={{ background:'none', border:'1px solid #e2e8f0', borderRadius:'10px', padding:'8px', fontSize:'12px', color:'#a0aec0', cursor:'pointer', marginTop:'2px' }}>閉じる</button>
       </div>
-      {open&&(
-        <div style={{ position:'absolute', bottom:'48px', left:'50%', transform:'translateX(-50%)', background:'white', borderRadius:'14px', padding:'8px', boxShadow:'0 8px 24px rgba(0,0,0,0.15)', border:'1px solid #e2e8f0', zIndex:200, width:'140px', display:'flex', flexDirection:'column', gap:'4px' }}>
-          {AI_APPS.map(a=>(
-            <a key={a.name} href={a.url} onClick={()=>setOpen(false)}
-              style={{ display:'flex', alignItems:'center', gap:'8px', padding:'7px 10px', borderRadius:'10px', textDecoration:'none', background:'#f8fafc', color:'#2d3748', fontSize:'12px', fontWeight:'600' }}>
-              <span style={{ fontSize:'16px' }}>{a.icon}</span>{a.name}
-            </a>
-          ))}
-          <button onClick={()=>setOpen(false)}
-            style={{ background:'none', border:'none', color:'#a0aec0', fontSize:'11px', cursor:'pointer', padding:'4px 0' }}>閉じる</button>
-        </div>
-      )}
-    </div>
+    </>
   );
 }
 
 // ━━━ ホーム画面 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function HomeView({ hp, cond, hpColor, barrier, setBarrier, now, healthStats, isDemo, loading, updatedAt }) {
+  const [showAI, setShowAI]=useState(false);
   const hh=String(now.getHours()).padStart(2,'0');
   const mm=String(now.getMinutes()).padStart(2,'0');
   const ss=String(now.getSeconds()).padStart(2,'0');
@@ -566,21 +630,34 @@ function HomeView({ hp, cond, hpColor, barrier, setBarrier, now, healthStats, is
   const subBg=b?'rgba(255,255,255,0.05)':'#f8fafc'; const subBdr=b?'rgba(167,139,250,0.15)':'#e8edf5';
   const updatedStr=updatedAt?new Date(updatedAt).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}):null;
 
+  // アイコンサイズ統一：全部24px絵文字・ボックスサイズ固定
+  const iconStyle={ fontSize:'24px', lineHeight:1, width:'28px', textAlign:'center', display:'block' };
+  const appBtnStyle=(show=true)=>({
+    flex:1, display: show?'flex':'none', flexDirection:'column', alignItems:'center', gap:'3px',
+    padding:'7px 4px', background:b?'rgba(255,255,255,0.06)':'white',
+    borderRadius:'12px', border:`1px solid ${b?'rgba(167,139,250,0.2)':'#e8edf5'}`,
+    textDecoration:'none', boxShadow:'0 2px 6px rgba(0,0,0,0.05)',
+    WebkitTapHighlightColor:'transparent', cursor:'pointer',
+  });
+  const labelStyle={ fontSize:'9px', color:b?'#a78bfa':'#a0aec0', fontWeight:'600' };
+
   const appsRow1=[
-    { name:'LINE',     icon:'💬', url:'line://',     show:true    },
+    { name:'LINE',     icon:'💬', url:'line://',    show:true    },
     { name:'X',        icon:'𝕏',  url:'twitter://', show:!barrier},
-    { name:'Kindle',   icon:'📚', url:'kindle://',   show:true    },
-    { name:'Obsidian', icon:'🔮', url:'obsidian://', show:true    },
+    { name:'Kindle',   icon:'📚', url:'kindle://',  show:true    },
+    { name:'Obsidian', icon:'🔮', url:'obsidian://',show:true    },
   ].filter(a=>a.show);
 
   const appsRow2=[
-    { name:'Gmail',    icon:'📧', url:'googlegmail://'      },
-    { name:'ヘルス',   icon:'❤️', url:'x-apple-health://'  },
-    { name:'note',     icon:'📝', url:'https://note.com'   },
+    { name:'Gmail',  icon:'📧', url:'googlegmail://'    },
+    { name:'ヘルス', icon:'❤️', url:'x-apple-health://' },
+    { name:'note',   icon:'📝', url:'note://'           },
   ];
 
   return (
     <div style={{ flex:1, minHeight:0, display:'flex', flexDirection:'column', position:'relative', overflow:'hidden' }}>
+      {showAI && <AIPopup onClose={()=>setShowAI(false)} barrier={barrier}/>}
+
       {/* 背景装飾 */}
       <div style={{ position:'absolute', inset:0, pointerEvents:'none', overflow:'hidden' }}>
         {!b?(<>
@@ -625,24 +702,20 @@ function HomeView({ hp, cond, hpColor, barrier, setBarrier, now, healthStats, is
         </div>
       </div>
 
-      {/* エネルギーカード（コンパクト化） */}
+      {/* エネルギーカード */}
       <div style={{ flex:1, padding:'4px 12px 4px', display:'flex', flexDirection:'column', justifyContent:'center', position:'relative', zIndex:1 }}>
         <div style={{ background:cBg, borderRadius:'20px', padding:'10px 14px', boxShadow:b?'0 4px 28px rgba(124,58,237,0.25)':'0 4px 20px rgba(0,0,0,0.07)', border:`1px solid ${cBdr}`, backdropFilter:b?'blur(12px)':'none', WebkitBackdropFilter:b?'blur(12px)':'none', transition:'all 0.8s' }}>
-          {/* ENERGY ラベル＋数値 */}
           <div style={{ display:'flex', alignItems:'center', marginBottom:'5px' }}>
             <span style={{ fontSize:'10px', color:sCol, letterSpacing:'1px' }}>ENERGY</span>
             <span style={{ fontSize:'14px', fontWeight:'800', color:b?'#a78bfa':hpColor, marginLeft:'auto', transition:'color 0.8s' }}>{hp} / 100</span>
           </div>
-          {/* 太いエネルギーバー */}
           <div style={{ height:'16px', borderRadius:'10px', background:b?'rgba(255,255,255,0.1)':'#edf2f7', overflow:'hidden', marginBottom:'8px' }}>
             <div style={{ height:'100%', borderRadius:'10px', width:`${hp}%`, background:b?'linear-gradient(90deg,#7c3aed88,#9f7aea)':`linear-gradient(90deg,${hpColor}88,${hpColor})`, transition:'width 1.2s ease, background 0.8s' }}/>
           </div>
-          {/* CONDITION */}
           <div style={{ background:subBg, borderRadius:'9px', padding:'6px 10px', border:`1px solid ${subBdr}`, marginBottom:'7px', transition:'all 0.8s' }}>
             <div style={{ fontSize:'9px', color:sCol, letterSpacing:'1.5px', marginBottom:'2px' }}>CONDITION</div>
             <p style={{ fontSize:'12px', color:b?'#c4b5fd':'#4a5568', lineHeight:'1.4', margin:0, transition:'color 0.8s' }}>{cond.text}</p>
           </div>
-          {/* 3指標 */}
           <div style={{ display:'flex', gap:'5px', marginBottom:'7px' }}>
             {healthStats.map(d=>(
               <div key={d.label} style={{ flex:1, background:b?'rgba(255,255,255,0.06)':'#f8fafc', borderRadius:'8px', padding:'5px 4px', border:`1px solid ${subBdr}`, textAlign:'center', transition:'all 0.8s' }}>
@@ -652,7 +725,6 @@ function HomeView({ hp, cond, hpColor, barrier, setBarrier, now, healthStats, is
               </div>
             ))}
           </div>
-          {/* 更新ボタン */}
           <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
             <div style={{ fontSize:'10px', color:b?'rgba(167,139,250,0.5)':'#cbd5e0', flexShrink:0 }}>
               {loading?'読み込み中...':isDemo?'⚠️ デモ':updatedStr?`✅ ${updatedStr}`:'✅'}
@@ -666,24 +738,26 @@ function HomeView({ hp, cond, hpColor, barrier, setBarrier, now, healthStats, is
       </div>
 
       {/* アプリショートカット 1行目 */}
-      <div style={{ padding:'3px 12px 2px', display:'flex', gap:'6px', justifyContent:'center', position:'relative', zIndex:1, flexShrink:0 }}>
+      <div style={{ padding:'3px 12px 2px', display:'flex', gap:'6px', position:'relative', zIndex:1, flexShrink:0 }}>
         {appsRow1.map(app=>(
-          <a key={app.name} href={app.url}
-            style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:'2px', padding:'6px 4px', background:b?'rgba(255,255,255,0.06)':'white', borderRadius:'12px', border:`1px solid ${b?'rgba(167,139,250,0.2)':'#e8edf5'}`, textDecoration:'none', boxShadow:'0 2px 6px rgba(0,0,0,0.05)', transition:'all 0.3s', WebkitTapHighlightColor:'transparent' }}>
-            <span style={{ fontSize:'20px', lineHeight:1 }}>{app.icon}</span>
-            <span style={{ fontSize:'9px', color:b?'#a78bfa':'#a0aec0', fontWeight:'600' }}>{app.name}</span>
+          <a key={app.name} href={app.url} style={appBtnStyle()}>
+            <span style={iconStyle}>{app.icon}</span>
+            <span style={labelStyle}>{app.name}</span>
           </a>
         ))}
       </div>
 
-      {/* アプリショートカット 2行目（AI + Gmail + ヘルス + note）*/}
-      <div style={{ padding:'2px 12px 6px', display:'flex', gap:'6px', justifyContent:'center', position:'relative', zIndex:1, flexShrink:0 }}>
-        <AIShortcut barrier={barrier}/>
+      {/* アプリショートカット 2行目 */}
+      <div style={{ padding:'2px 12px 6px', display:'flex', gap:'6px', position:'relative', zIndex:1, flexShrink:0 }}>
+        {/* AIボタン */}
+        <div style={{ ...appBtnStyle(), flex:1 }} onClick={()=>setShowAI(true)}>
+          <span style={iconStyle}>🧠</span>
+          <span style={labelStyle}>AI</span>
+        </div>
         {appsRow2.map(app=>(
-          <a key={app.name} href={app.url}
-            style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:'2px', padding:'6px 4px', background:b?'rgba(255,255,255,0.06)':'white', borderRadius:'12px', border:`1px solid ${b?'rgba(167,139,250,0.2)':'#e8edf5'}`, textDecoration:'none', boxShadow:'0 2px 6px rgba(0,0,0,0.05)', transition:'all 0.3s', WebkitTapHighlightColor:'transparent' }}>
-            <span style={{ fontSize:'20px', lineHeight:1 }}>{app.icon}</span>
-            <span style={{ fontSize:'9px', color:b?'#a78bfa':'#a0aec0', fontWeight:'600' }}>{app.name}</span>
+          <a key={app.name} href={app.url} style={appBtnStyle()}>
+            <span style={iconStyle}>{app.icon}</span>
+            <span style={labelStyle}>{app.name}</span>
           </a>
         ))}
       </div>
@@ -704,6 +778,7 @@ export default function Home() {
   const [tab, setTab]=useState('home');
   const [barrier, setBarrier]=useState(false);
   const [tasks, setTasks]=useState([]);
+  const [archived, setArchived]=useState([]);
   const [health, setHealth]=useState({ steps:0, sleep:0, heartRate:0, isDemo:true, updatedAt:null });
   const [loading, setLoading]=useState(true);
   const [cleanseInput, setCleanseInput]=useState('');
@@ -713,6 +788,7 @@ export default function Home() {
   useEffect(()=>{
     const t=setInterval(()=>setNow(new Date()),1000);
     try { const r=localStorage.getItem('mp_cleanse_v1'); if(r) setCleanseHistory(JSON.parse(r)); } catch {}
+    try { const r=localStorage.getItem('mp_archived_v1'); if(r) setArchived(JSON.parse(r)); } catch {}
     return()=>clearInterval(t);
   },[]);
 
@@ -759,7 +835,7 @@ export default function Home() {
       <div style={{ height:'100%', padding:'12px 14px 0', display:'flex', flexDirection:'column', boxSizing:'border-box' }}>
         <div style={cardStyle}>
           <div style={{ fontSize:'11px', color:'#a0aec0', letterSpacing:'2px', marginBottom:'8px', flexShrink:0 }}>{titles[tab]}</div>
-          {tab==='task'    && <TaskTab tasks={tasks} setTasks={setTasks}/>}
+          {tab==='task'    && <TaskTab tasks={tasks} setTasks={setTasks} archived={archived} setArchived={setArchived}/>}
           {tab==='cleanse' && <CleanseTab
             input={cleanseInput} setInput={setCleanseInput}
             result={cleanseResult} setResult={setCleanseResult}
