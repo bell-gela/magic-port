@@ -15,19 +15,29 @@ function getTodayKey() {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { steps, sleep, heartRate } = body;
+    const { steps, sleep, sleepSeconds, heartRate } = body;
     const today = getTodayKey();
 
-    // 既存データを取得
     const raw      = await redis.get(`health:${today}`);
     const existing = raw
       ? (typeof raw === 'string' ? JSON.parse(raw) : raw)
       : { steps: 0, sleep: 0, heartRate: 0 };
 
-    // sleep が -1 のときは既存の睡眠データを維持
+    // sleepSeconds（秒）が来たら時間に変換、なければ sleep（時間）を使う
+    let sleepHours;
+    if (sleepSeconds !== undefined && sleepSeconds !== null && sleepSeconds !== '') {
+      sleepHours = Math.round((Number(sleepSeconds) / 3600) * 10) / 10;
+    } else if (sleep === -1 || sleep === '-1') {
+      sleepHours = existing.sleep;
+    } else if (sleep !== undefined && sleep !== null && sleep !== '') {
+      sleepHours = Number(sleep);
+    } else {
+      sleepHours = existing.sleep;
+    }
+
     const newData = {
       steps:     Number(steps)     ?? existing.steps,
-      sleep:     sleep === -1 ? existing.sleep : (Number(sleep) ?? existing.sleep),
+      sleep:     sleepHours,
       heartRate: Number(heartRate) ?? existing.heartRate,
       updatedAt: new Date().toISOString(),
     };
