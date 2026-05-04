@@ -616,6 +616,46 @@ function AIPopup({ onClose, barrier }) {
   );
 }
 
+// ━━━ カレンダーセクション ━━━━━━━━━━━━━━━━━━━━━━━━
+function CalendarSection({ barrier }) {
+  const [events, setEvents]=useState([]);
+
+  useEffect(()=>{
+    fetch('/api/calendar').then(r=>r.json()).then(d=>setEvents(d.events||[])).catch(()=>{});
+  },[]);
+
+  if(events.length===0) return null;
+  const b=barrier;
+  const subBg =b?'rgba(255,255,255,0.05)':'#f8fafc';
+  const subBdr=b?'rgba(167,139,250,0.15)':'#e8edf5';
+  const sCol  =b?'#a78bfa':'#a0aec0';
+
+  return (
+    <div style={{ padding:'0 12px 3px', flexShrink:0, position:'relative', zIndex:1 }}>
+      <div style={{ background:subBg, borderRadius:'12px', padding:'8px 12px', border:`1px solid ${subBdr}`, transition:'all 0.8s' }}>
+        <div style={{ fontSize:'9px', color:sCol, letterSpacing:'1.5px', marginBottom:'5px' }}>📅 TODAY</div>
+        <div style={{ display:'flex', flexDirection:'column', gap:'4px' }}>
+          {events.map((ev,i)=>(
+            <div key={i} style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+              <span style={{ fontSize:'11px', fontWeight:'700', color:b?'#9f7aea':'#4299e1', minWidth:'38px', flexShrink:0 }}>
+                {ev.allDay?'終日':ev.time}
+              </span>
+              <span style={{ fontSize:'12px', color:b?'#e9d8fd':'#2d3748', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1 }}>
+                {ev.summary}
+              </span>
+              {ev.location&&(
+                <span style={{ fontSize:'10px', color:sCol, flexShrink:0, overflow:'hidden', textOverflow:'ellipsis', maxWidth:'70px' }}>
+                  {ev.location}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ━━━ ホーム画面 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function HomeView({ hp, cond, hpColor, barrier, setBarrier, now, healthStats, isDemo, loading, updatedAt }) {
   const [showAI, setShowAI]=useState(false);
@@ -736,6 +776,8 @@ function HomeView({ hp, cond, hpColor, barrier, setBarrier, now, healthStats, is
           </div>
         </div>
       </div>
+
+      <CalendarSection barrier={barrier} />
 
       {/* アプリショートカット 1行目 */}
       <div style={{ padding:'3px 12px 2px', display:'flex', gap:'6px', position:'relative', zIndex:1, flexShrink:0 }}>
